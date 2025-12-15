@@ -12,19 +12,19 @@ classdef ImageFilter < handle
                     if size(img, 3) == 3
                         gray = rgb2gray(img);
                         edges = edge(gray, 'sobel');
-                        filtered = uint8(double(img) .* repmat(edges, [1 1 3]));
+                        filtered = uint8(repmat(edges, [1 1 3]) * 255);
                     else
                         edges = edge(img, 'sobel');
-                        filtered = uint8(double(img) .* edges);
+                        filtered = uint8(edges * 255);
                     end
                 case 'Edge Detection (Canny)'
                     if size(img, 3) == 3
                         gray = rgb2gray(img);
                         edges = edge(gray, 'canny');
-                        filtered = uint8(double(img) .* repmat(edges, [1 1 3]));
+                        filtered = uint8(repmat(edges, [1 1 3]) * 255);
                     else
                         edges = edge(img, 'canny');
-                        filtered = uint8(double(img) .* edges);
+                        filtered = uint8(edges * 255);
                     end
                 case 'Emboss'
                     kernel = [-2 -1 0; -1 1 1; 0 1 2];

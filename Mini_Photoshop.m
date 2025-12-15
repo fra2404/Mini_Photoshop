@@ -42,21 +42,29 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         HistoryTab matlab.ui.container.Tab
         HistoryText matlab.ui.control.TextArea
         ExportLogButton matlab.ui.control.Button
-        % CurveTab matlab.ui.container.Tab
-        % CurveAxes matlab.ui.control.UIAxes
-        % CurveChannelLabel matlab.ui.control.Label
-        % CurveChannelDropDown matlab.ui.control.DropDown
-        % AddPointButton matlab.ui.control.Button
-        % RemovePointButton matlab.ui.control.Button
-        % ResetCurveButton matlab.ui.control.Button
-        FilterGaussianBlur matlab.ui.control.CheckBox
-        FilterSharpen matlab.ui.control.CheckBox
-        FilterSobel matlab.ui.control.CheckBox
-        FilterCanny matlab.ui.control.CheckBox
-        FilterEmboss matlab.ui.control.CheckBox
-        FilterHistEq matlab.ui.control.CheckBox
-        FilterAdaptHist matlab.ui.control.CheckBox
-        FilterNoiseReduction matlab.ui.control.CheckBox
+        CurveTab matlab.ui.container.Tab
+        CurveAxes matlab.ui.control.UIAxes
+        CurveChannelLabel matlab.ui.control.Label
+        CurveChannelDropDown matlab.ui.control.DropDown
+        AddPointButton matlab.ui.control.Button
+        RemovePointButton matlab.ui.control.Button
+        ResetCurveButton matlab.ui.control.Button
+        FilterGaussianBlurImg matlab.ui.control.Image
+        FilterGaussianBlurBtn matlab.ui.control.StateButton
+        FilterSharpenImg matlab.ui.control.Image
+        FilterSharpenBtn matlab.ui.control.StateButton
+        FilterSobelImg matlab.ui.control.Image
+        FilterSobelBtn matlab.ui.control.StateButton
+        FilterCannyImg matlab.ui.control.Image
+        FilterCannyBtn matlab.ui.control.StateButton
+        FilterEmbossImg matlab.ui.control.Image
+        FilterEmbossBtn matlab.ui.control.StateButton
+        FilterHistEqImg matlab.ui.control.Image
+        FilterHistEqBtn matlab.ui.control.StateButton
+        FilterAdaptHistImg matlab.ui.control.Image
+        FilterAdaptHistBtn matlab.ui.control.StateButton
+        FilterNoiseReductionImg matlab.ui.control.Image
+        FilterNoiseReductionBtn matlab.ui.control.StateButton
         ApplyFiltersButton matlab.ui.control.Button
     end
 
@@ -64,18 +72,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         OriginalImage
         CurrentImage
         HistoryManager
+        CurveManager
+        FilterManager
         CurrentBrightness
         CurrentContrast
         CurrentSaturation
-        % CurvePointsR  % [x;y] points for R curve
-        % CurvePointsG  % [x;y] points for G curve
-        % CurvePointsB  % [x;y] points for B curve
-        % CurrentChannel  % 'R', 'G', 'B', 'RGB'
-        % SelectedPointIndex  % index of selected point for dragging
         HasUnsavedChanges
         ShowingOriginal
-        % AddMode  % flag for adding points
-        % RemoveMode  % flag for removing points
         AdjustmentTimer  % timer for debouncing adjustments
     end
 
@@ -85,27 +88,21 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         % Code that executes after component creation
         function startupFcn(app)
             app.HistoryManager = HistoryManager();
+            app.CurveManager = CurveManager();
+            app.FilterManager = FilterManager();
             app.OriginalImage = [];
             app.CurrentImage = [];
             app.CurrentBrightness = 0;
             app.CurrentContrast = 0;
             app.CurrentSaturation = 0;
-            % % Initialize curve points as diagonal lines
-            % app.CurvePointsR = [0 255; 0 255];
-            % app.CurvePointsG = [0 255; 0 255];
-            % app.CurvePointsB = [0 255; 0 255];
-            % app.CurrentChannel = 'RGB';
-            % app.SelectedPointIndex = 0;
             app.HasUnsavedChanges = false;
             app.ShowingOriginal = false;
-            % app.AddMode = false;
-            % app.RemoveMode = false;
-            app.AdjustmentTimer = timer('ExecutionMode', 'singleShot', 'StartDelay', 0.2, 'TimerFcn', @app.applyAdjustments);
+            app.AdjustmentTimer = timer('ExecutionMode', 'singleShot', 'StartDelay', 0.2, 'TimerFcn', @app.applyAdjustmentsWithLog);
             app.UIAxes.Visible = 'off';
             app.HistogramAxes.Visible = 'off';
             app.PlaceholderLabel.Visible = 'on';
-            % app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
-            % UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
+            app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
+            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
         end
 
         function updateHistoryText(app)
@@ -116,21 +113,32 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             if isempty(app.CurrentImage)
                 return;
             end
-            % Check if all adjustments are at default (no changes)
-            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0);
-            if isDefault
-                % Directly set to original
-                adjusted = app.OriginalImage;
-            else
-                % Apply all adjustments from the original
-                adjusted = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
-            end
+            % Always apply from original image
+            adjusted = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
+            
+            % Apply selected filters on top of adjustments
+            app.FilterManager.updateFromButtons(struct(...
+                'GaussianBlur', app.FilterGaussianBlurBtn, ...
+                'Sharpen', app.FilterSharpenBtn, ...
+                'Sobel', app.FilterSobelBtn, ...
+                'Canny', app.FilterCannyBtn, ...
+                'Emboss', app.FilterEmbossBtn, ...
+                'HistEq', app.FilterHistEqBtn, ...
+                'AdaptHist', app.FilterAdaptHistBtn, ...
+                'NoiseReduction', app.FilterNoiseReductionBtn));
+            adjusted = app.FilterManager.applySelectedFilters(adjusted);
+            
             cla(app.UIAxes);
             imshow(adjusted, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
             UIManager.updateHistogram(adjusted, app.HistogramAxes);
             app.CurrentImage = adjusted;
-            app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
+            app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
             app.HasUnsavedChanges = true;
+            % Don't add to log here - will be added by specific action functions
+        end
+
+        function applyAdjustmentsWithLog(app, ~, ~)
+            app.applyAdjustments();
             app.HistoryManager.addToHistoryLog(sprintf('Adjustments: B=%.1f, C=%.1f, S=%.1f', app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation));
             app.updateHistoryText();
         end
@@ -151,20 +159,30 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             fullpath = fullfile(path, file);
             app.OriginalImage = imread(fullpath);
             info = imfinfo(fullpath);
-            text = sprintf('Format: %s\nSize: %dx%d pixels', info.Format, info.Width, info.Height);
+            textLines = {};
+            textLines{end+1} = sprintf('Format: %s', info.Format);
+            textLines{end+1} = sprintf('Size: %dx%d pixels', info.Width, info.Height);
             if isfield(info, 'ColorType')
-                text = [text sprintf('\nColor type: %s', info.ColorType)];
+                textLines{end+1} = sprintf('Color type: %s', info.ColorType);
             end
             if isfield(info, 'BitDepth')
-                text = [text sprintf('\nBit depth: %d', info.BitDepth)];
+                textLines{end+1} = sprintf('Bit depth: %d', info.BitDepth);
             end
             if isfield(info, 'FileSize')
-                text = [text sprintf('\nFile size: %.2f MB', info.FileSize / 1e6)];
+                textLines{end+1} = sprintf('File size: %.2f MB', info.FileSize / 1e6);
             end
             % Add EXIF info
             exifText = MetadataExtractor.extractExifInfo(info);
-            text = [text '\n\nExtracted EXIF info:' exifText];
-            app.ImageInfoText.Value = splitlines(text);
+            if ~isempty(exifText)
+                textLines{end+1} = 'Extracted EXIF info:';
+                exifLines = splitlines(exifText);
+                for i = 1:length(exifLines)
+                    if ~isempty(strtrim(exifLines{i}))
+                        textLines{end+1} = exifLines{i};
+                    end
+                end
+            end
+            app.ImageInfoText.Value = textLines;
             
             app.CurrentImage = app.OriginalImage;
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
@@ -180,6 +198,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.addToHistoryLog('Image opened');
             app.updateHistoryText();
             app.updateHistoryText();
+            app.updateFilterPreviews();
         end
 
         % Button pushed function: SaveButton
@@ -216,13 +235,11 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentBrightness = 0;
             app.CurrentContrast = 0;
             app.CurrentSaturation = 0;
-            app.CurvePointsR = [0 255; 0 255];
-            app.CurvePointsG = [0 255; 0 255];
-            app.CurvePointsB = [0 255; 0 255];
+            app.CurveManager.reset();
             app.BrightnessSlider.Value = 0;
             app.ContrastSlider.Value = 0;
             app.SaturationSlider.Value = 0;
-            UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
+            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
             % Show original image
             cla(app.UIAxes);
             imshow(app.OriginalImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -243,19 +260,35 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.CurrentBrightness = entry.brightness;
                 app.CurrentContrast = entry.contrast;
                 app.CurrentSaturation = entry.saturation;
-                % app.CurvePointsR = entry.pointsR;
-                % app.CurvePointsG = entry.pointsG;
-                % app.CurvePointsB = entry.pointsB;
                 app.BrightnessSlider.Value = app.CurrentBrightness;
                 app.ContrastSlider.Value = app.CurrentContrast;
                 app.SaturationSlider.Value = app.CurrentSaturation;
                 app.BrightnessField.Value = app.CurrentBrightness;
                 app.ContrastField.Value = app.CurrentContrast;
                 app.SaturationField.Value = app.CurrentSaturation;
+                % Restore curve points
+                if isfield(entry, 'pointsR')
+                    app.CurveManager.CurvePointsR = entry.pointsR;
+                    app.CurveManager.CurvePointsG = entry.pointsG;
+                    app.CurveManager.CurvePointsB = entry.pointsB;
+                    % Ensure correct orientation (2xN instead of Nx2)
+                    if size(app.CurveManager.CurvePointsR, 1) > 2
+                        app.CurveManager.CurvePointsR = app.CurveManager.CurvePointsR';
+                    end
+                    if size(app.CurveManager.CurvePointsG, 1) > 2
+                        app.CurveManager.CurvePointsG = app.CurveManager.CurvePointsG';
+                    end
+                    if size(app.CurveManager.CurvePointsB, 1) > 2
+                        app.CurveManager.CurvePointsB = app.CurveManager.CurvePointsB';
+                    end
+                    % Update curve plot if visible
+                    if ~isempty(app.CurveAxes) && isvalid(app.CurveAxes)
+                        UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                    end
+                end
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
                 UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
-                % UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
                 app.HistoryManager.addToHistoryLog('Undo');
                 app.updateHistoryText();
             end
@@ -269,19 +302,35 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.CurrentBrightness = entry.brightness;
                 app.CurrentContrast = entry.contrast;
                 app.CurrentSaturation = entry.saturation;
-                % app.CurvePointsR = entry.pointsR;
-                % app.CurvePointsG = entry.pointsG;
-                % app.CurvePointsB = entry.pointsB;
                 app.BrightnessSlider.Value = app.CurrentBrightness;
                 app.ContrastSlider.Value = app.CurrentContrast;
                 app.SaturationSlider.Value = app.CurrentSaturation;
                 app.BrightnessField.Value = app.CurrentBrightness;
                 app.ContrastField.Value = app.CurrentContrast;
                 app.SaturationField.Value = app.CurrentSaturation;
+                % Restore curve points
+                if isfield(entry, 'pointsR')
+                    app.CurveManager.CurvePointsR = entry.pointsR;
+                    app.CurveManager.CurvePointsG = entry.pointsG;
+                    app.CurveManager.CurvePointsB = entry.pointsB;
+                    % Ensure correct orientation (2xN instead of Nx2)
+                    if size(app.CurveManager.CurvePointsR, 1) > 2
+                        app.CurveManager.CurvePointsR = app.CurveManager.CurvePointsR';
+                    end
+                    if size(app.CurveManager.CurvePointsG, 1) > 2
+                        app.CurveManager.CurvePointsG = app.CurveManager.CurvePointsG';
+                    end
+                    if size(app.CurveManager.CurvePointsB, 1) > 2
+                        app.CurveManager.CurvePointsB = app.CurveManager.CurvePointsB';
+                    end
+                    % Update curve plot if visible
+                    if ~isempty(app.CurveAxes) && isvalid(app.CurveAxes)
+                        UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                    end
+                end
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
                 UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
-                % UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
                 app.HistoryManager.addToHistoryLog('Redo');
                 app.updateHistoryText();
             end
@@ -321,12 +370,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentBrightness = value;
             app.BrightnessField.Value = value;  % Sync field
             % Check if all are at default
-            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0) && ...
-                        isequal(app.CurvePointsR, [0 255; 0 255]) && isequal(app.CurvePointsG, [0 255; 0 255]) && isequal(app.CurvePointsB, [0 255; 0 255]);
+            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0) && app.CurveManager.isAtDefault();
             if isDefault
-                % Apply immediately
+                % Apply immediately with log
                 stop(app.AdjustmentTimer);
                 app.applyAdjustments();
+                app.HistoryManager.addToHistoryLog('Reset to default adjustments');
+                app.updateHistoryText();
             else
                 % Debounce the application
                 stop(app.AdjustmentTimer);
@@ -347,12 +397,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentContrast = value;
             app.ContrastField.Value = value;  % Sync field
             % Check if all are at default
-            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0) && ...
-                        isequal(app.CurvePointsR, [0 255; 0 255]) && isequal(app.CurvePointsG, [0 255; 0 255]) && isequal(app.CurvePointsB, [0 255; 0 255]);
+            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0) && app.CurveManager.isAtDefault();
             if isDefault
-                % Apply immediately
+                % Apply immediately with log
                 stop(app.AdjustmentTimer);
                 app.applyAdjustments();
+                app.HistoryManager.addToHistoryLog('Reset to default adjustments');
+                app.updateHistoryText();
             else
                 % Debounce the application
                 stop(app.AdjustmentTimer);
@@ -373,12 +424,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentSaturation = value;
             app.SaturationField.Value = value;  % Sync field
             % Check if all are at default
-            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0) && ...
-                        isequal(app.CurvePointsR, [0 255; 0 255]) && isequal(app.CurvePointsG, [0 255; 0 255]) && isequal(app.CurvePointsB, [0 255; 0 255]);
+            isDefault = (app.CurrentBrightness == 0) && (app.CurrentContrast == 0) && (app.CurrentSaturation == 0) && app.CurveManager.isAtDefault();
             if isDefault
-                % Apply immediately
+                % Apply immediately with log
                 stop(app.AdjustmentTimer);
                 app.applyAdjustments();
+                app.HistoryManager.addToHistoryLog('Reset to default adjustments');
+                app.updateHistoryText();
             else
                 % Debounce the application
                 stop(app.AdjustmentTimer);
@@ -417,48 +469,44 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
-            filtered = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation);
+            filtered = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
             filtersApplied = {};
-            if app.FilterGaussianBlur.Value
+            if app.FilterGaussianBlurBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Gaussian Blur');
                 filtersApplied{end+1} = 'Gaussian Blur';
             end
-            if app.FilterSharpen.Value
+            if app.FilterSharpenBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Sharpen');
                 filtersApplied{end+1} = 'Sharpen';
             end
-            if app.FilterSobel.Value
+            if app.FilterSobelBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Sobel)');
                 filtersApplied{end+1} = 'Edge Detection (Sobel)';
             end
-            if app.FilterCanny.Value
+            if app.FilterCannyBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Canny)');
                 filtersApplied{end+1} = 'Edge Detection (Canny)';
             end
-            if app.FilterEmboss.Value
+            if app.FilterEmbossBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Emboss');
                 filtersApplied{end+1} = 'Emboss';
             end
-            if app.FilterHistEq.Value
+            if app.FilterHistEqBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Automatic correction (histeq)');
                 filtersApplied{end+1} = 'Automatic correction (histeq)';
             end
-            if app.FilterAdaptHist.Value
+            if app.FilterAdaptHistBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Adaptive correction (adapthisteq)');
                 filtersApplied{end+1} = 'Adaptive correction (adapthisteq)';
             end
-            if app.FilterNoiseReduction.Value
+            if app.FilterNoiseReductionBtn.Value
                 filtered = ImageFilter.applyFilter(filtered, 'Noise reduction');
                 filtersApplied{end+1} = 'Noise reduction';
             end
             if isempty(filtersApplied)
-                % Reset to original image with current adjustments
-                if app.CurrentBrightness == 0 && app.CurrentContrast == 0 && app.CurrentSaturation == 0
-                    app.CurrentImage = app.OriginalImage;
-                else
-                    app.CurrentImage = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation);
-                end
-                app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
+                % Reset to original image with current adjustments applied
+                app.CurrentImage = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
+                app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
                 UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
@@ -468,6 +516,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 return;
             end
             app.CurrentImage = filtered;
+            app.updateFilterPreviews();  % Update filter previews with new base image
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -491,6 +540,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             rotated = imrotate(app.CurrentImage, -90);
             app.CurrentImage = rotated;
             app.OriginalImage = rotated;  % Update the original for persistence
+            app.updateFilterPreviews();  % Update filter previews with new base image
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -513,6 +563,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             rotated = imrotate(app.CurrentImage, 180);
             app.CurrentImage = rotated;
             app.OriginalImage = rotated;  % Update the original for persistence
+            app.updateFilterPreviews();  % Update filter previews with new base image
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -535,6 +586,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             rotated = imrotate(app.CurrentImage, 90);
             app.CurrentImage = rotated;
             app.OriginalImage = rotated;  % Update the original for persistence
+            app.updateFilterPreviews();  % Update filter previews with new base image
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -557,6 +609,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             flipped = flip(app.CurrentImage, 2);
             app.CurrentImage = flipped;
             app.OriginalImage = flipped;  % Update the original for persistence
+            app.updateFilterPreviews();  % Update filter previews with new base image
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -579,6 +632,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             flipped = flip(app.CurrentImage, 1);
             app.CurrentImage = flipped;
             app.OriginalImage = flipped;  % Update the original for persistence
+            app.updateFilterPreviews();  % Update filter previews with new base image
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -604,6 +658,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 [height, width, ~] = size(cropped);
                 app.CurrentImage = cropped;
                 app.OriginalImage = cropped;  % Update the original for persistence
+                app.updateFilterPreviews();  % Update filter previews with new base image
                 app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -797,153 +852,61 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             end
         end
 
-        function adjusted = adjustBrightness(~, img, value)
-            adjusted = double(img) + value;
-            adjusted = uint8(max(0, min(255, adjusted)));
-        end
-
-        function adjusted = adjustContrast(~, img, value)
-            factor = 1 + value / 100;
-            adjusted = (double(img) - 128) * factor + 128;
-            adjusted = uint8(max(0, min(255, adjusted)));
-        end
-
-        function adjusted = adjustSaturation(~, img, value)
-            if size(img, 3) == 3
-                hsv = rgb2hsv(img);
-                hsv(:,:,2) = hsv(:,:,2) * (1 + value / 100);
-                hsv(:,:,2) = min(max(hsv(:,:,2), 0), 1);
-                adjusted = hsv2rgb(hsv);
-            else
-                adjusted = img; % No saturation adjustment for grayscale
-            end
-        end
-
-        function adjusted = applyAllAdjustments(app, img)
-            adjusted = app.adjustBrightness(img, app.CurrentBrightness);
-            adjusted = app.adjustContrast(adjusted, app.CurrentContrast);
-            adjusted = app.adjustSaturation(adjusted, app.CurrentSaturation);
-            % adjusted = app.applyCurves(adjusted, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB);
-        end
-
-        % function adjusted = applyCurves(~, img, pointsR, pointsG, pointsB)
-        %     if size(img, 3) == 3
-        %         adjusted = img;
-        %         % Create LUT for R channel
-        %         lutR = interp1(pointsR(1,:), pointsR(2,:), 0:255, 'linear', 'extrap');
-        %         lutR = uint8(max(0, min(255, lutR)));
-        %         adjusted(:,:,1) = lutR(img(:,:,1) + 1);
-        %         
-        %         % Create LUT for G channel
-        %         lutG = interp1(pointsG(1,:), pointsG(2,:), 0:255, 'linear', 'extrap');
-        %         lutG = uint8(max(0, min(255, lutG)));
-        %         adjusted(:,:,2) = lutG(img(:,:,2) + 1);
-        %         
-        %         % Create LUT for B channel
-        %         lutB = interp1(pointsB(1,:), pointsB(2,:), 0:255, 'linear', 'extrap');
-        %         lutB = uint8(max(0, min(255, lutB)));
-        %         adjusted(:,:,3) = lutB(img(:,:,3) + 1);
-        %     else
-        %         % For grayscale, apply average curve
-        %         avgPoints = (pointsR + pointsG + pointsB) / 3;
-        %         lutGray = interp1(avgPoints(1,:), avgPoints(2,:), 0:255, 'linear', 'extrap');
-        %         lutGray = uint8(max(0, min(255, lutGray)));
-        %         adjusted = lutGray(img + 1);
-        %     end
-        % end
-
-        % function filtered = applyFilter(~, img, filter)
-        %     switch filter
-        %         case 'Gaussian Blur'
-        %             filtered = imgaussfilt(img, 10);
-        %         case 'Sharpen'
-        %             filtered = imsharpen(img);
-        %         case 'Edge Detection (Sobel)'
-        %             if size(img, 3) == 3
-        %                 gray = rgb2gray(img);
-        %             else
-        %                 gray = img;
-        %             end
-        %             edges = edge(gray, 'sobel');
-        %             filtered = uint8(double(img) .* edges);
-        %         case 'Edge Detection (Canny)'
-        %             if size(img, 3) == 3
-        %                 gray = rgb2gray(img);
-        %             else
-        %                 gray = img;
-        %             end
-        %             edges = edge(gray, 'canny');
-        %             filtered = uint8(double(img) .* edges);
-        %         case 'Emboss'
-        %             kernel = [-2 -1 0; -1 1 1; 0 1 2];
-        %             if size(img, 3) == 3
-        %                 embossed = imfilter(rgb2gray(img), kernel);
-        %                 filtered = uint8(double(img) + embossed);
-        %             else
-        %                 filtered = imfilter(img, kernel);
-        %             end
-        %         case 'Correzione automatica (histeq)'
-        %             if size(img, 3) == 3
-        %                 hsv = rgb2hsv(img);
-        %                 hsv(:,:,3) = histeq(hsv(:,:,3));
-        %                 filtered = hsv2rgb(hsv);
-        %             else
-        %                 filtered = histeq(img);
-        %             end
-        %         case 'Correzione adattiva (adapthisteq)'
-        %             if size(img, 3) == 3
-        %                 hsv = rgb2hsv(img);
-        %                 hsv(:,:,3) = adapthisteq(hsv(:,:,3));
-        %                 filtered = hsv2rgb(hsv);
-        %             else
-        %                 filtered = adapthisteq(img);
-        %             end
-        %     end
-        % end
-
-        function updateHistogram(app)
-            if isempty(app.CurrentImage)
+        function updateFilterPreviews(app)
+            if isempty(app.OriginalImage)
                 return;
             end
-            cla(app.HistogramAxes);
-            if size(app.CurrentImage, 3) == 3
-                % For color images, show histogram of intensity
-                gray = rgb2gray(app.CurrentImage);
-                histogram(app.HistogramAxes, gray(:), 'BinWidth', 1, 'FaceColor', 'k');
-            else
-                histogram(app.HistogramAxes, app.CurrentImage(:), 'BinWidth', 1, 'FaceColor', 'k');
+            % Generate thumbnails for each filter
+            img = imresize(app.OriginalImage, [50 50]);
+            if size(img, 3) == 1
+                img = repmat(img, [1 1 3]);
             end
-            title(app.HistogramAxes, 'Istogramma');
-            xlim(app.HistogramAxes, [0 255]);
+            
+            % Gaussian Blur
+            filtered = ImageFilter.applyFilter(img, 'Gaussian Blur');
+            app.FilterGaussianBlurImg.ImageSource = filtered;
+            
+            % Sharpen
+            filtered = ImageFilter.applyFilter(img, 'Sharpen');
+            app.FilterSharpenImg.ImageSource = filtered;
+            
+            % Sobel
+            if size(img, 3) == 3
+                gray = rgb2gray(img);
+            else
+                gray = img;
+            end
+            edges = edge(gray, 'sobel');
+            filtered = uint8(repmat(edges * 255, [1 1 3]));
+            app.FilterSobelImg.ImageSource = filtered;
+            
+            % Canny
+            edges = edge(gray, 'canny');
+            filtered = uint8(repmat(edges * 255, [1 1 3]));
+            app.FilterCannyImg.ImageSource = filtered;
+            
+            % Emboss
+            filtered = ImageFilter.applyFilter(img, 'Emboss');
+            app.FilterEmbossImg.ImageSource = filtered;
+            
+            % Hist Eq
+            filtered = ImageFilter.applyFilter(img, 'Automatic correction (histeq)');
+            app.FilterHistEqImg.ImageSource = filtered;
+            
+            % Adapt Hist
+            filtered = ImageFilter.applyFilter(img, 'Adaptive correction (adapthisteq)');
+            app.FilterAdaptHistImg.ImageSource = filtered;
+            
+            % Noise Reduction
+            filtered = ImageFilter.applyFilter(img, 'Noise reduction');
+            app.FilterNoiseReductionImg.ImageSource = filtered;
         end
 
-        % function updateCurvePlots(app)
-        %     x = 0:255;
-        %     gammaR = app.CurveRSlider.Value;
-        %     gammaG = app.CurveGSlider.Value;
-        %     gammaB = app.CurveBSlider.Value;
-        %     yR = uint8(255 * (double(x)/255).^gammaR);
-        %     yG = uint8(255 * (double(x)/255).^gammaG);
-        %     yB = uint8(255 * (double(x)/255).^gammaB);
-        %     cla(app.CurveAxes);
-        %     hold(app.CurveAxes, 'on');
-        %     plot(app.CurveAxes, x, yR, 'r', 'LineWidth', 2);
-        %     plot(app.CurveAxes, x, yG, 'g', 'LineWidth', 2);
-        %     plot(app.CurveAxes, x, yB, 'b', 'LineWidth', 2);
-        %     hold(app.CurveAxes, 'off');
-        %     title(app.CurveAxes, 'Curve RGB');
-        %     xlim(app.CurveAxes, [0 255]);
-        %     ylim(app.CurveAxes, [0 255]);
-        %     legend(app.CurveAxes, 'R', 'G', 'B');
-        % end
-
-        function pushToHistory(app, img)
-            app.HistoryIndex = app.HistoryIndex + 1;
-            if app.HistoryIndex > length(app.History)
-                app.History{app.HistoryIndex} = struct('image', img, 'brightness', app.CurrentBrightness, 'contrast', app.CurrentContrast, 'saturation', app.CurrentSaturation, 'gammaR', app.CurrentGammaR, 'gammaG', app.CurrentGammaG, 'gammaB', app.CurrentGammaB);
+        function updateButtonColor(~, btn)
+            if btn.Value
+                btn.BackgroundColor = [0.5 0.9 0.5]; % Green when selected
             else
-                app.History{app.HistoryIndex} = struct('image', img, 'brightness', app.CurrentBrightness, 'contrast', app.CurrentContrast, 'saturation', app.CurrentSaturation, 'gammaR', app.CurrentGammaR, 'gammaG', app.CurrentGammaG, 'gammaB', app.CurrentGammaB);
-                app.History(app.HistoryIndex+1:end) = [];
+                btn.BackgroundColor = [0.8 0.8 0.8]; % Gray when not
             end
         end
 
@@ -964,55 +927,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             fclose(fid);
             uialert(app.UIFigure, 'Log exported successfully', 'Confirm', 'Icon', 'success');
         end
-
-
-        % % Value changed function: CurveGSlider
-        % function CurveGSliderValueChanged(app, ~, ~)
-        %     if isempty(app.CurrentImage)
-        %         return;
-        %     end
-        %     if app.ShowingOriginal
-        %         app.ShowingOriginal = false;
-        %         app.ShowOriginalButton.Text = 'Show Original';
-        %     end
-        %     value = app.CurveGSlider.Value;
-        %     app.CurrentGammaG = value;
-        %     % Apply all adjustments from the original
-        %     adjusted = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB);
-        %     cla(app.UIAxes);
-        %     imshow(adjusted, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-        %     UIManager.updateHistogram(adjusted, app.HistogramAxes);
-        %     UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB);
-        %     app.CurrentImage = adjusted;
-        %     app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
-        %     app.HasUnsavedChanges = true;
-        %     app.HistoryManager.addToHistoryLog(sprintf('Curve G: %.2f', value));
-        %     app.updateHistoryText();
-        % end
-
-        % % Value changed function: CurveBSlider
-        % function CurveBSliderValueChanged(app, ~, ~)
-        %     if isempty(app.CurrentImage)
-        %         return;
-        %     end
-        %     if app.ShowingOriginal
-        %         app.ShowingOriginal = false;
-        %         app.ShowOriginalButton.Text = 'Show Original';
-        %     end
-        %     value = app.CurveBSlider.Value;
-        %     app.CurrentGammaB = value;
-        %     % Apply all adjustments from the original
-        %     adjusted = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB);
-        %     cla(app.UIAxes);
-        %     imshow(adjusted, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-        %     UIManager.updateHistogram(adjusted, app.HistogramAxes);
-        %     UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB);
-        %     app.CurrentImage = adjusted;
-        %     app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
-        %     app.HasUnsavedChanges = true;
-        %     app.HistoryManager.addToHistoryLog(sprintf('Curve B: %.2f', value));
-        %     app.updateHistoryText();
-        % end
 
         % Close request function: UIFigure
         function UIFigureCloseRequest(app, ~, ~)
@@ -1073,6 +987,9 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.UIAxes.Box = 'off';
             app.UIAxes.XTick = [];
             app.UIAxes.YTick = [];
+            axis(app.UIAxes, 'tight');
+            app.UIAxes.XColor = 'none';
+            app.UIAxes.YColor = 'none';
 
             % Create HistogramAxes
             app.HistogramAxes = uiaxes(app.UIFigure);
@@ -1113,37 +1030,64 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.FlipHorizontalButton = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Flip H.', 'Position', [40 50 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipHorizontalButtonPushed);
             app.FlipVerticalButton = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Flip V.', 'Position', [140 50 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipVerticalButtonPushed);
 
+            % Curve RGB Tab
+            app.CurveTab = uitab(app.TabGroup, 'Title', 'Curves');
+            app.CurveAxes = uiaxes(app.CurveTab);
+            app.CurveAxes.Position = [40 180 270 350];
+            app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
+            app.CurveChannelLabel = uilabel(app.CurveTab, 'Text', 'Channel:', 'Position', [10 140 60 20]);
+            app.CurveChannelDropDown = uidropdown(app.CurveTab, 'Items', {'R', 'G', 'B', 'RGB'}, 'Value', 'RGB', 'Position', [70 140 80 20], 'ValueChangedFcn', @app.CurveChannelDropDownValueChanged);
+            app.AddPointButton = uibutton(app.CurveTab, 'push', 'Text', 'Add Point', 'Position', [160 140 80 25], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.AddPointButtonPushed);
+            app.RemovePointButton = uibutton(app.CurveTab, 'push', 'Text', 'Remove Point', 'Position', [250 140 90 25], 'BackgroundColor', [1 0.8 0.8], 'ButtonPushedFcn', @app.RemovePointButtonPushed);
+            app.ResetCurveButton = uibutton(app.CurveTab, 'push', 'Text', 'Reset Curves', 'Position', [10 100 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ResetCurveButtonPushed);
+
             % Filters Tab
             app.FiltersTab = uitab(app.TabGroup, 'Title', 'Filters');
-            app.FilterGaussianBlur = uicheckbox(app.FiltersTab, 'Text', 'Gaussian Blur', 'Position', [10 350 120 20]);
-            app.FilterSharpen = uicheckbox(app.FiltersTab, 'Text', 'Sharpen', 'Position', [10 320 120 20]);
-            app.FilterSobel = uicheckbox(app.FiltersTab, 'Text', 'Edge Detection (Sobel)', 'Position', [10 290 150 20]);
-            app.FilterCanny = uicheckbox(app.FiltersTab, 'Text', 'Edge Detection (Canny)', 'Position', [10 260 150 20]);
-            app.FilterEmboss = uicheckbox(app.FiltersTab, 'Text', 'Emboss', 'Position', [10 230 120 20]);
-            app.FilterHistEq = uicheckbox(app.FiltersTab, 'Text', 'Auto Correction (histeq)', 'Position', [10 200 180 20]);
-            app.FilterAdaptHist = uicheckbox(app.FiltersTab, 'Text', 'Adaptive Correction (adapthisteq)', 'Position', [10 170 200 20]);
-            app.FilterNoiseReduction = uicheckbox(app.FiltersTab, 'Text', 'Noise Reduction', 'Position', [10 140 120 20]);
+            
+            % Row 1
+            app.FilterGaussianBlurImg = uiimage(app.FiltersTab, 'Position', [10 300 50 50]);
+            app.FilterGaussianBlurBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [10 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Blur', 'Position', [10 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            app.FilterSharpenImg = uiimage(app.FiltersTab, 'Position', [70 300 50 50]);
+            app.FilterSharpenBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [70 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Sharpen', 'Position', [70 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            app.FilterSobelImg = uiimage(app.FiltersTab, 'Position', [130 300 50 50]);
+            app.FilterSobelBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [130 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Edges', 'Position', [130 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            app.FilterCannyImg = uiimage(app.FiltersTab, 'Position', [190 300 50 50]);
+            app.FilterCannyBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [190 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Canny', 'Position', [190 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            % Row 2
+            app.FilterEmbossImg = uiimage(app.FiltersTab, 'Position', [10 160 50 50]);
+            app.FilterEmbossBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [10 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Emboss', 'Position', [10 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            app.FilterHistEqImg = uiimage(app.FiltersTab, 'Position', [70 160 50 50]);
+            app.FilterHistEqBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [70 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Hist Eq', 'Position', [70 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            app.FilterAdaptHistImg = uiimage(app.FiltersTab, 'Position', [130 160 50 50]);
+            app.FilterAdaptHistBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [130 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Adapt Hist', 'Position', [130 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
+            app.FilterNoiseReductionImg = uiimage(app.FiltersTab, 'Position', [190 160 50 50]);
+            app.FilterNoiseReductionBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [190 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Noise Red', 'Position', [190 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
+            
             app.ApplyFiltersButton = uibutton(app.FiltersTab, 'push', 'Text', 'Apply Selected Filters', 'Position', [10 20 150 30], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.ApplyFiltersButtonPushed);
+
+            % Info Tab
+            app.InfoTab = uitab(app.TabGroup, 'Title', 'Info');
+            app.ImageInfoText = uitextarea(app.InfoTab, 'Value', "", 'Position', [10 10 330 520], 'Editable', 'off');
 
             % History Tab
             app.HistoryTab = uitab(app.TabGroup, 'Title', 'History');
             app.HistoryText = uitextarea(app.HistoryTab, 'Value', "", 'Position', [10 40 330 500], 'Editable', 'off');
             app.ExportLogButton = uibutton(app.HistoryTab, 'push', 'Text', 'Export Log', 'Position', [10 10 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ExportLogButtonPushed);
-
-            % % Curve RGB Tab
-            % app.CurveTab = uitab(app.TabGroup, 'Title', 'Curve');
-            % app.CurveAxes = uiaxes(app.CurveTab);
-            % app.CurveAxes.Position = [40 180 270 350];
-            % app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
-            % app.CurveChannelLabel = uilabel(app.CurveTab, 'Text', 'Channel:', 'Position', [10 140 60 20]);
-            % app.CurveChannelDropDown = uidropdown(app.CurveTab, 'Items', {'R', 'G', 'B', 'RGB'}, 'Value', 'RGB', 'Position', [70 140 80 20], 'ValueChangedFcn', @app.CurveChannelDropDownValueChanged);
-            % app.AddPointButton = uibutton(app.CurveTab, 'push', 'Text', 'Add Point', 'Position', [160 140 80 25], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.AddPointButtonPushed);
-            % app.RemovePointButton = uibutton(app.CurveTab, 'push', 'Text', 'Remove Point', 'Position', [250 140 90 25], 'BackgroundColor', [1 0.8 0.8], 'ButtonPushedFcn', @app.RemovePointButtonPushed);
-            % app.ResetCurveButton = uibutton(app.CurveTab, 'push', 'Text', 'Reset Curve', 'Position', [10 100 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ResetCurveButtonPushed);
-
-            % Info Tab
-            app.InfoTab = uitab(app.TabGroup, 'Title', 'Info');
-            app.ImageInfoText = uitextarea(app.InfoTab, 'Value', "", 'Position', [10 10 330 520], 'Editable', 'off');
 
         end
 
@@ -1182,133 +1126,101 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             delete(app.UIFigure)
         end
 
-        % % Value changed function: CurveChannelDropDown
-        % function CurveChannelDropDownValueChanged(app, ~, ~)
-        %     app.CurrentChannel = app.CurveChannelDropDown.Value;
-        %     UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
-        % end
+        % Value changed function: CurveChannelDropDown
+        function CurveChannelDropDownValueChanged(app, ~, ~)
+            app.CurveManager.setChannel(app.CurveChannelDropDown.Value);
+            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+        end
 
-        % % Button pushed function: AddPointButton
-        % function AddPointButtonPushed(app, ~, ~)
-        %     app.AddMode = true;
-        %     app.RemoveMode = false;
-        %     % Change button color to indicate mode
-        %     app.AddPointButton.BackgroundColor = [0.5 0.9 0.5];
-        %     app.RemovePointButton.BackgroundColor = [1 0.8 0.8];
-        % end
+        % Button pushed function: AddPointButton
+        function AddPointButtonPushed(app, ~, ~)
+            app.CurveManager.enableAddMode();
+            app.AddPointButton.BackgroundColor = [0.2 0.8 0.2];  % Verde brillante
+            app.AddPointButton.FontWeight = 'bold';
+            app.RemovePointButton.BackgroundColor = [0.96 0.96 0.96];  % Grigio chiaro
+            app.RemovePointButton.FontWeight = 'normal';
+        end
 
-        % % Button pushed function: RemovePointButton
-        % function RemovePointButtonPushed(app, ~, ~)
-        %     app.RemoveMode = true;
-        %     app.AddMode = false;
-        %     % Change button color to indicate mode
-        %     app.RemovePointButton.BackgroundColor = [1 0.5 0.5];
-        %     app.AddPointButton.BackgroundColor = [0.8 0.9 1];
-        % end
+        % Button pushed function: RemovePointButton
+        function RemovePointButtonPushed(app, ~, ~)
+            app.CurveManager.enableRemoveMode();
+            app.RemovePointButton.BackgroundColor = [0.9 0.2 0.2];  % Rosso brillante
+            app.RemovePointButton.FontWeight = 'bold';
+            app.AddPointButton.BackgroundColor = [0.96 0.96 0.96];  % Grigio chiaro
+            app.AddPointButton.FontWeight = 'normal';
+        end
 
-        % % Button pushed function: ResetCurveButton
-        % function ResetCurveButtonPushed(app, ~, ~)
-        %     % Reset to diagonal
-        %     app.CurvePointsR = [0 255; 0 255];
-        %     app.CurvePointsG = [0 255; 0 255];
-        %     app.CurvePointsB = [0 255; 0 255];
-        %     UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
-        %     % Apply changes immediately
-        %     stop(app.AdjustmentTimer);
-        %     app.applyAdjustments();
-        % end
+        % Button pushed function: ResetCurveButton
+        function ResetCurveButtonPushed(app, ~, ~)
+            if isempty(app.CurrentImage)
+                return;
+            end
+            app.CurveManager.reset();
+            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+            stop(app.AdjustmentTimer);
+            app.applyAdjustments();
+            app.HistoryManager.addToHistoryLog('Curves reset');
+            app.updateHistoryText();
+        end
 
-        % function CurveAxesButtonDown(app, ~, ~)
-        %     if isempty(app.OriginalImage)
-        %         return;
-        %     end
-        %     if app.AddMode
-        %         % Get click position
-        %         cp = app.CurveAxes.CurrentPoint;
-        %         x = round(cp(1,1));
-        %         y = round(cp(1,2));
-        %         x = max(0, min(255, x));
-        %         y = max(0, min(255, y));
-        %         
-        %         % Add point to current channel
-        %         if strcmp(app.CurrentChannel, 'R') || strcmp(app.CurrentChannel, 'RGB')
-        %             app.CurvePointsR = [app.CurvePointsR, [x; y]];
-        %             [~, idx] = sort(app.CurvePointsR(1,:));
-        %             app.CurvePointsR = app.CurvePointsR(:, idx);
-        %         end
-        %         if strcmp(app.CurrentChannel, 'G') || strcmp(app.CurrentChannel, 'RGB')
-        %             app.CurvePointsG = [app.CurvePointsG, [x; y]];
-        %             [~, idx] = sort(app.CurvePointsG(1,:));
-        %             app.CurvePointsG = app.CurvePointsG(:, idx);
-        %         end
-        %         if strcmp(app.CurrentChannel, 'B') || strcmp(app.CurrentChannel, 'RGB')
-        %             app.CurvePointsB = [app.CurvePointsB, [x; y]];
-        %             [~, idx] = sort(app.CurvePointsB(1,:));
-        %             app.CurvePointsB = app.CurvePointsB(:, idx);
-        %         end
-        %         UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
-        %         % Apply changes
-        %         stop(app.AdjustmentTimer);
-        %         app.applyAdjustments();
-        %         app.AddMode = false;
-        %         app.AddPointButton.BackgroundColor = [0.8 0.9 1];
-        %     elseif app.RemoveMode
-        %         % Get click position
-        %         cp = app.CurveAxes.CurrentPoint;
-        %         x = round(cp(1,1));
-        %         y = round(cp(1,2));
-        %         
-        %         % Find closest point in current channel and remove it
-        %         minDist = inf;
-        %         removeIdx = 0;
-        %         if strcmp(app.CurrentChannel, 'R') || strcmp(app.CurrentChannel, 'RGB')
-        %         for i = 1:size(app.CurvePointsR, 2)
-        %             dist = sqrt((app.CurvePointsR(1,i) - x)^2 + (app.CurvePointsR(2,i) - y)^2);
-        %             if dist < minDist && dist < 50  % Tolerance of 50 pixels
-        %                 minDist = dist;
-        %                 removeIdx = i;
-        %             end
-        %         end
-        %         if removeIdx > 0 && size(app.CurvePointsR, 2) > 2  % Keep at least 2 points
-        %             app.CurvePointsR(:, removeIdx) = [];
-        %         end
-        %     end
-        %     if strcmp(app.CurrentChannel, 'G') || strcmp(app.CurrentChannel, 'RGB')
-        %         minDist = inf;
-        %         removeIdx = 0;
-        %         for i = 1:size(app.CurvePointsG, 2)
-        %             dist = sqrt((app.CurvePointsG(1,i) - x)^2 + (app.CurvePointsG(2,i) - y)^2);
-        %             if dist < minDist && dist < 50
-        %                 minDist = dist;
-        %                 removeIdx = i;
-        %             end
-        %         end
-        %         if removeIdx > 0 && size(app.CurvePointsG, 2) > 2
-        %             app.CurvePointsG(:, removeIdx) = [];
-        %         end
-        %     end
-        %     if strcmp(app.CurrentChannel, 'B') || strcmp(app.CurrentChannel, 'RGB')
-        %         minDist = inf;
-        %         removeIdx = 0;
-        %         for i = 1:size(app.CurvePointsB, 2)
-        %             dist = sqrt((app.CurvePointsB(1,i) - x)^2 + (app.CurvePointsB(2,i) - y)^2);
-        %             if dist < minDist && dist < 50
-        %                 minDist = dist;
-        %                 removeIdx = i;
-        %             end
-        %         end
-        %         if removeIdx > 0 && size(app.CurvePointsB, 2) > 2
-        %             app.CurvePointsB(:, removeIdx) = [];
-        %         end
-        %     end
-        %     UIManager.updateCurvePlots(app.CurveAxes, app.CurvePointsR, app.CurvePointsG, app.CurvePointsB, app.CurrentChannel);
-        %     % Apply changes
-        %     stop(app.AdjustmentTimer);
-        %     app.applyAdjustments();
-        %     app.RemoveMode = false;
-        %     app.RemovePointButton.BackgroundColor = [1 0.8 0.8];
-        % end
-        % end
+        % Mouse click on curve axes
+        function CurveAxesButtonDown(app, ~, event)
+            if isempty(app.CurrentImage)
+                return;
+            end
+            
+            coords = event.IntersectionPoint;
+            x = round(coords(1));
+            y = round(coords(2));
+            
+            if app.CurveManager.AddMode
+                app.CurveManager.addPoint(x, y);
+                UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                drawnow;
+                stop(app.AdjustmentTimer);
+                app.applyAdjustments();
+                app.CurveManager.disableModes();
+                app.AddPointButton.BackgroundColor = [0.96 0.96 0.96];
+                app.AddPointButton.FontWeight = 'normal';
+                switch app.CurveManager.CurrentChannel
+                    case 'RGB'
+                        channelStr = 'RGB';
+                    case 'R'
+                        channelStr = 'Red';
+                    case 'G'
+                        channelStr = 'Green';
+                    case 'B'
+                        channelStr = 'Blue';
+                    otherwise
+                        channelStr = 'RGB';
+                end
+                app.HistoryManager.addToHistoryLog(sprintf('%s curve point added at (%d, %d)', channelStr, x, y));
+                app.updateHistoryText();
+            elseif app.CurveManager.RemoveMode
+                app.CurveManager.removePoint(x, y);
+                UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                drawnow;
+                stop(app.AdjustmentTimer);
+                app.applyAdjustments();
+                app.CurveManager.disableModes();
+                app.RemovePointButton.BackgroundColor = [0.96 0.96 0.96];
+                app.RemovePointButton.FontWeight = 'normal';
+                switch app.CurveManager.CurrentChannel
+                    case 'RGB'
+                        channelStr = 'RGB';
+                    case 'R'
+                        channelStr = 'Red';
+                    case 'G'
+                        channelStr = 'Green';
+                    case 'B'
+                        channelStr = 'Blue';
+                    otherwise
+                        channelStr = 'RGB';
+                end
+                app.HistoryManager.addToHistoryLog(sprintf('%s curve point removed', channelStr));
+                app.updateHistoryText();
+            end
+        end
 
     end
 

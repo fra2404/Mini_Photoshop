@@ -17,7 +17,7 @@ classdef ImageAdjuster < handle
             if size(img, 3) == 3
                 hsv = rgb2hsv(img);
                 hsv(:,:,2) = max(0, min(1, hsv(:,:,2) + value / 100));
-                adjusted = hsv2rgb(hsv);
+                adjusted = im2uint8(hsv2rgb(hsv));
             else
                 adjusted = img; % No saturation adjustment for grayscale
             end
@@ -65,11 +65,13 @@ classdef ImageAdjuster < handle
             end
         end
         
-        function adjusted = applyAllAdjustments(img, brightness, contrast, saturation, ~, ~, ~)
+        function adjusted = applyAllAdjustments(img, brightness, contrast, saturation, pointsR, pointsG, pointsB)
+            % Always start from original image
+            % Apply in correct order: Brightness -> Contrast -> Curves -> Saturation
             adjusted = ImageAdjuster.adjustBrightness(img, brightness);
             adjusted = ImageAdjuster.adjustContrast(adjusted, contrast);
+            adjusted = ImageAdjuster.applyCurves(adjusted, pointsR, pointsG, pointsB);
             adjusted = ImageAdjuster.adjustSaturation(adjusted, saturation);
-            % adjusted = ImageAdjuster.applyCurves(adjusted, pointsR, pointsG, pointsB);
         end
         
     end

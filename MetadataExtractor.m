@@ -4,6 +4,7 @@ classdef MetadataExtractor < handle
         
         function exifText = extractExifInfo(info)
             exifText = '';
+            firstField = true;
             % Device Make
             make = [];
             if isfield(info, 'Make')
@@ -12,7 +13,12 @@ classdef MetadataExtractor < handle
                 make = info.DigitalCamera.Make;
             end
             if ~isempty(make)
-                exifText = [exifText sprintf('\nDevice Make: %s', make)];
+                if firstField
+                    exifText = sprintf('Device Make: %s', make);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nDevice Make: %s', make)];
+                end
             end
             % Device Model
             model = [];
@@ -22,7 +28,12 @@ classdef MetadataExtractor < handle
                 model = info.DigitalCamera.Model;
             end
             if ~isempty(model)
-                exifText = [exifText sprintf('\nDevice Model: %s', model)];
+                if firstField
+                    exifText = sprintf('Device Model: %s', model);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nDevice Model: %s', model)];
+                end
             end
             % ISO
             iso = [];
@@ -32,7 +43,12 @@ classdef MetadataExtractor < handle
                 iso = info.DigitalCamera.ISOSpeedRatings;
             end
             if ~isempty(iso)
-                exifText = [exifText sprintf('\nISO: %d', iso)];
+                if firstField
+                    exifText = sprintf('ISO: %d', iso);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nISO: %d', iso)];
+                end
             end
             % F-stop
             fnumber = [];
@@ -42,7 +58,12 @@ classdef MetadataExtractor < handle
                 fnumber = info.DigitalCamera.FNumber;
             end
             if ~isempty(fnumber)
-                exifText = [exifText sprintf('\nF-stop: f/%.1f', fnumber)];
+                if firstField
+                    exifText = sprintf('F-stop: f/%.1f', fnumber);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nF-stop: f/%.1f', fnumber)];
+                end
             end
             % Focal Length
             focallength = [];
@@ -52,7 +73,12 @@ classdef MetadataExtractor < handle
                 focallength = info.DigitalCamera.FocalLength;
             end
             if ~isempty(focallength)
-                exifText = [exifText sprintf('\nFocal Length: %.1f mm', focallength)];
+                if firstField
+                    exifText = sprintf('Focal Length: %.1f mm', focallength);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nFocal Length: %.1f mm', focallength)];
+                end
             end
             % Exposure Time
             exposuretime = [];
@@ -62,7 +88,12 @@ classdef MetadataExtractor < handle
                 exposuretime = info.DigitalCamera.ExposureTime;
             end
             if ~isempty(exposuretime)
-                exifText = [exifText sprintf('\nExposure Time: 1/%.0f s', 1/exposuretime)];
+                if firstField
+                    exifText = sprintf('Exposure Time: 1/%.0f s', 1/exposuretime);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nExposure Time: 1/%.0f s', 1/exposuretime)];
+                end
             end
             % Exposure Program
             exposureprogram = [];
@@ -72,7 +103,12 @@ classdef MetadataExtractor < handle
                 exposureprogram = info.DigitalCamera.ExposureProgram;
             end
             if ~isempty(exposureprogram)
-                exifText = [exifText sprintf('\nExposure Program: %s', exposureprogram)];
+                if firstField
+                    exifText = sprintf('Exposure Program: %s', exposureprogram);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nExposure Program: %s', exposureprogram)];
+                end
             end
             % Metering Mode
             meteringmode = [];
@@ -82,7 +118,12 @@ classdef MetadataExtractor < handle
                 meteringmode = info.DigitalCamera.MeteringMode;
             end
             if ~isempty(meteringmode)
-                exifText = [exifText sprintf('\nMetering Mode: %s', meteringmode)];
+                if firstField
+                    exifText = sprintf('Metering Mode: %s', meteringmode);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nMetering Mode: %s', meteringmode)];
+                end
             end
             % Lens info from XMP if available
             lens = [];
@@ -92,7 +133,12 @@ classdef MetadataExtractor < handle
                 lens = info.XMPData.exifEX.LensModel;
             end
             if ~isempty(lens)
-                exifText = [exifText sprintf('\nLens: %s', lens)];
+                if firstField
+                    exifText = sprintf('Lens: %s', lens);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nLens: %s', lens)];
+                end
             end
             % Copyright
             copyright = [];
@@ -100,7 +146,12 @@ classdef MetadataExtractor < handle
                 copyright = info.Copyright;
             end
             if ~isempty(copyright)
-                exifText = [exifText sprintf('\nCopyright: %s', copyright)];
+                if firstField
+                    exifText = sprintf('Copyright: %s', copyright);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nCopyright: %s', copyright)];
+                end
             end
             % Artist
             artist = [];
@@ -108,7 +159,12 @@ classdef MetadataExtractor < handle
                 artist = info.Artist;
             end
             if ~isempty(artist)
-                exifText = [exifText sprintf('\nArtist: %s', artist)];
+                if firstField
+                    exifText = sprintf('Artist: %s', artist);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nArtist: %s', artist)];
+                end
             end
             % Software
             software = [];
@@ -116,7 +172,12 @@ classdef MetadataExtractor < handle
                 software = info.Software;
             end
             if ~isempty(software)
-                exifText = [exifText sprintf('\nSoftware: %s', software)];
+                if firstField
+                    exifText = sprintf('Software: %s', software);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nSoftware: %s', software)];
+                end
             end
             % Date Taken
             datetimeoriginal = [];
@@ -126,7 +187,12 @@ classdef MetadataExtractor < handle
                 datetimeoriginal = info.DigitalCamera.DateTimeOriginal;
             end
             if ~isempty(datetimeoriginal)
-                exifText = [exifText sprintf('\nDate Taken: %s', datetimeoriginal)];
+                if firstField
+                    exifText = sprintf('Date Taken: %s', datetimeoriginal);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nDate Taken: %s', datetimeoriginal)];
+                end
             end
             % Image Description
             imagedescription = [];
@@ -134,7 +200,12 @@ classdef MetadataExtractor < handle
                 imagedescription = info.ImageDescription;
             end
             if ~isempty(imagedescription)
-                exifText = [exifText sprintf('\nImage Description: %s', imagedescription)];
+                if firstField
+                    exifText = sprintf('Image Description: %s', imagedescription);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nImage Description: %s', imagedescription)];
+                end
             end
             % White Balance
             whitebalance = [];
@@ -144,7 +215,12 @@ classdef MetadataExtractor < handle
                 whitebalance = info.DigitalCamera.WhiteBalance;
             end
             if ~isempty(whitebalance)
-                exifText = [exifText sprintf('\nWhite Balance: %s', whitebalance)];
+                if firstField
+                    exifText = sprintf('White Balance: %s', whitebalance);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nWhite Balance: %s', whitebalance)];
+                end
             end
             % Flash
             flash = [];
@@ -154,7 +230,12 @@ classdef MetadataExtractor < handle
                 flash = info.DigitalCamera.Flash;
             end
             if ~isempty(flash)
-                exifText = [exifText sprintf('\nFlash: %s', flash)];
+                if firstField
+                    exifText = sprintf('Flash: %s', flash);
+                    firstField = false;
+                else
+                    exifText = [exifText sprintf('\nFlash: %s', flash)];
+                end
             end
         end
         
