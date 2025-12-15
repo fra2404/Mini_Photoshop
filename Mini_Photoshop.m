@@ -102,7 +102,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistogramAxes.Visible = 'off';
             app.PlaceholderLabel.Visible = 'on';
             app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
-            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+            PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
         end
 
         function updateHistoryText(app)
@@ -130,7 +130,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             
             cla(app.UIAxes);
             imshow(adjusted, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(adjusted, app.HistogramAxes);
+            PlotManager.updateHistogram(adjusted, app.HistogramAxes);
             app.CurrentImage = adjusted;
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
             app.HasUnsavedChanges = true;
@@ -188,7 +188,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.UIAxes.Visible = 'on';
             app.HistogramAxes.Visible = 'on';
             app.PlaceholderLabel.Visible = 'off';
@@ -196,7 +196,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.ShowingOriginal = false;
             app.ShowOriginalButton.Text = 'Show Original';
             app.HistoryManager.addToHistoryLog('Image opened');
-            app.updateHistoryText();
             app.updateHistoryText();
             app.updateFilterPreviews();
         end
@@ -216,7 +215,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             uialert(app.UIFigure, 'Image saved successfully', 'Confirm', 'Icon', 'success');
             app.HasUnsavedChanges = false;
             app.HistoryManager.addToHistoryLog('Image saved');
-            app.updateHistoryText();
             app.updateHistoryText();
         end
 
@@ -239,11 +237,11 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.BrightnessSlider.Value = 0;
             app.ContrastSlider.Value = 0;
             app.SaturationSlider.Value = 0;
-            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+            PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
             % Show original image
             cla(app.UIAxes);
             imshow(app.OriginalImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.OriginalImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.OriginalImage, app.HistogramAxes);
             app.CurrentImage = app.OriginalImage;
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             app.HasUnsavedChanges = false;
@@ -283,12 +281,12 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                     end
                     % Update curve plot if visible
                     if ~isempty(app.CurveAxes) && isvalid(app.CurveAxes)
-                        UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                        PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
                     end
                 end
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-                UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+                PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
                 app.HistoryManager.addToHistoryLog('Undo');
                 app.updateHistoryText();
             end
@@ -325,12 +323,12 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                     end
                     % Update curve plot if visible
                     if ~isempty(app.CurveAxes) && isvalid(app.CurveAxes)
-                        UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                        PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
                     end
                 end
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-                UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+                PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
                 app.HistoryManager.addToHistoryLog('Redo');
                 app.updateHistoryText();
             end
@@ -347,13 +345,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
                 app.ShowOriginalButton.Text = 'Show Original';
                 app.ShowingOriginal = false;
-                UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+                PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             else
                 % Show the original image
                 imshow(app.OriginalImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
                 app.ShowOriginalButton.Text = 'Show Modified';
                 app.ShowingOriginal = true;
-                UIManager.updateHistogram(app.OriginalImage, app.HistogramAxes);
+                PlotManager.updateHistogram(app.OriginalImage, app.HistogramAxes);
             end
         end
 
@@ -509,7 +507,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-                UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+                PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
                 app.HasUnsavedChanges = true;
                 app.HistoryManager.addToHistoryLog('Filters reset');
                 app.updateHistoryText();
@@ -520,7 +518,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.HasUnsavedChanges = true;
             logMsg = ['Filters applied: ' strjoin(filtersApplied, ', ')];
             app.HistoryManager.addToHistoryLog(logMsg);
@@ -544,7 +542,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Rotation 90°');
             app.updateHistoryText();
@@ -567,7 +565,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Rotation 180°');
             app.updateHistoryText();
@@ -590,7 +588,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Rotation 270°');
             app.updateHistoryText();
@@ -613,7 +611,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Horizontal flip');
             app.updateHistoryText();
@@ -636,7 +634,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
             cla(app.UIAxes);
             imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+            PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Vertical flip');
             app.updateHistoryText();
@@ -662,195 +660,17 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-                UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
+                PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
                 app.HasUnsavedChanges = true;
                 app.HistoryManager.addToHistoryLog(sprintf('Crop applied: %dx%d', width, height));
                 app.updateHistoryText();
             end
         end
 
-        % Button pushed function: ResizeButton
-        function ResizeButtonPushed(app, ~, ~)
-            if isempty(app.CurrentImage)
-                uialert(app.UIFigure, 'No image loaded', 'Error');
-                return;
-            end
-            if app.ShowingOriginal
-                app.ShowingOriginal = false;
-                app.ShowOriginalButton.Text = 'Show Original';
-            end
-            scale = app.ResizeEdit.Value;
-            resized = imresize(app.CurrentImage, scale);
-            app.CurrentImage = resized;
-            app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
-            cla(app.UIAxes);
-            imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-            UIManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
-            app.HasUnsavedChanges = true;
-            app.HistoryManager.addToHistoryLog(['Resize: ' num2str(scale)]);
-            app.updateHistoryText();
-        end
-
     end
 
     % Helper functions
     methods (Access = private)
-
-        function exifText = extractExifInfo(~, info)
-            exifText = '';
-            % Device Make
-            make = [];
-            if isfield(info, 'Make')
-                make = info.Make;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'Make')
-                make = info.DigitalCamera.Make;
-            end
-            if ~isempty(make)
-                exifText = [exifText sprintf('\nDevice Make: %s', make)];
-            end
-            % Device Model
-            model = [];
-            if isfield(info, 'Model')
-                model = info.Model;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'Model')
-                model = info.DigitalCamera.Model;
-            end
-            if ~isempty(model)
-                exifText = [exifText sprintf('\nDevice Model: %s', model)];
-            end
-            % ISO
-            iso = [];
-            if isfield(info, 'ISOSpeedRatings')
-                iso = info.ISOSpeedRatings;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'ISOSpeedRatings')
-                iso = info.DigitalCamera.ISOSpeedRatings;
-            end
-            if ~isempty(iso)
-                exifText = [exifText sprintf('\nISO: %d', iso)];
-            end
-            % F-stop
-            fnumber = [];
-            if isfield(info, 'FNumber')
-                fnumber = info.FNumber;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'FNumber')
-                fnumber = info.DigitalCamera.FNumber;
-            end
-            if ~isempty(fnumber)
-                exifText = [exifText sprintf('\nF-stop: f/%.1f', fnumber)];
-            end
-            % Focal Length
-            focallength = [];
-            if isfield(info, 'FocalLength')
-                focallength = info.FocalLength;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'FocalLength')
-                focallength = info.DigitalCamera.FocalLength;
-            end
-            if ~isempty(focallength)
-                exifText = [exifText sprintf('\nFocal Length: %.1f mm', focallength)];
-            end
-            % Exposure Time
-            exposuretime = [];
-            if isfield(info, 'ExposureTime')
-                exposuretime = info.ExposureTime;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'ExposureTime')
-                exposuretime = info.DigitalCamera.ExposureTime;
-            end
-            if ~isempty(exposuretime)
-                exifText = [exifText sprintf('\nExposure Time: 1/%.0f s', 1/exposuretime)];
-            end
-            % Exposure Program
-            exposureprogram = [];
-            if isfield(info, 'ExposureProgram')
-                exposureprogram = info.ExposureProgram;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'ExposureProgram')
-                exposureprogram = info.DigitalCamera.ExposureProgram;
-            end
-            if ~isempty(exposureprogram)
-                exifText = [exifText sprintf('\nExposure Program: %s', exposureprogram)];
-            end
-            % Metering Mode
-            meteringmode = [];
-            if isfield(info, 'MeteringMode')
-                meteringmode = info.MeteringMode;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'MeteringMode')
-                meteringmode = info.DigitalCamera.MeteringMode;
-            end
-            if ~isempty(meteringmode)
-                exifText = [exifText sprintf('\nMetering Mode: %s', meteringmode)];
-            end
-            % Lens info from XMP if available
-            lens = [];
-            if isfield(info, 'XMPData') && isfield(info.XMPData, 'aux') && isfield(info.XMPData.aux, 'Lens')
-                lens = info.XMPData.aux.Lens;
-            elseif isfield(info, 'XMPData') && isfield(info.XMPData, 'exifEX') && isfield(info.XMPData.exifEX, 'LensModel')
-                lens = info.XMPData.exifEX.LensModel;
-            end
-            if ~isempty(lens)
-                exifText = [exifText sprintf('\nLens: %s', lens)];
-            end
-            % Copyright
-            copyright = [];
-            if isfield(info, 'Copyright')
-                copyright = info.Copyright;
-            end
-            if ~isempty(copyright)
-                exifText = [exifText sprintf('\nCopyright: %s', copyright)];
-            end
-            % Artist
-            artist = [];
-            if isfield(info, 'Artist')
-                artist = info.Artist;
-            end
-            if ~isempty(artist)
-                exifText = [exifText sprintf('\nArtist: %s', artist)];
-            end
-            % Software
-            software = [];
-            if isfield(info, 'Software')
-                software = info.Software;
-            end
-            if ~isempty(software)
-                exifText = [exifText sprintf('\nSoftware: %s', software)];
-            end
-            % Date Taken
-            datetimeoriginal = [];
-            if isfield(info, 'DateTimeOriginal')
-                datetimeoriginal = info.DateTimeOriginal;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'DateTimeOriginal')
-                datetimeoriginal = info.DigitalCamera.DateTimeOriginal;
-            end
-            if ~isempty(datetimeoriginal)
-                exifText = [exifText sprintf('\nDate Taken: %s', datetimeoriginal)];
-            end
-            % Image Description
-            imagedescription = [];
-            if isfield(info, 'ImageDescription')
-                imagedescription = info.ImageDescription;
-            end
-            if ~isempty(imagedescription)
-                exifText = [exifText sprintf('\nImage Description: %s', imagedescription)];
-            end
-            % White Balance
-            whitebalance = [];
-            if isfield(info, 'WhiteBalance')
-                whitebalance = info.WhiteBalance;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'WhiteBalance')
-                whitebalance = info.DigitalCamera.WhiteBalance;
-            end
-            if ~isempty(whitebalance)
-                exifText = [exifText sprintf('\nWhite Balance: %s', whitebalance)];
-            end
-            % Flash
-            flash = [];
-            if isfield(info, 'Flash')
-                flash = info.Flash;
-            elseif isfield(info, 'DigitalCamera') && isfield(info.DigitalCamera, 'Flash')
-                flash = info.DigitalCamera.Flash;
-            end
-            if ~isempty(flash)
-                exifText = [exifText sprintf('\nFlash: %s', flash)];
-            end
-        end
 
         function updateFilterPreviews(app)
             if isempty(app.OriginalImage)
@@ -954,18 +774,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             delete(app.UIFigure);
         end
 
-
-        % Button pushed function: ResetGButton
-        function ResetGButtonPushed(app, ~, ~)
-            app.CurveGSlider.Value = 1;
-            app.CurveGSliderValueChanged();
-        end
-
-        % Button pushed function: ResetBButton
-        function ResetBButtonPushed(app, ~, ~)
-            app.CurveBSlider.Value = 1;
-            app.CurveBSliderValueChanged();
-        end
 
     end
 
@@ -1129,7 +937,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         % Value changed function: CurveChannelDropDown
         function CurveChannelDropDownValueChanged(app, ~, ~)
             app.CurveManager.setChannel(app.CurveChannelDropDown.Value);
-            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+            PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
         end
 
         % Button pushed function: AddPointButton
@@ -1156,7 +964,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 return;
             end
             app.CurveManager.reset();
-            UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+            PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
             stop(app.AdjustmentTimer);
             app.applyAdjustments();
             app.HistoryManager.addToHistoryLog('Curves reset');
@@ -1175,7 +983,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             
             if app.CurveManager.AddMode
                 app.CurveManager.addPoint(x, y);
-                UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
                 drawnow;
                 stop(app.AdjustmentTimer);
                 app.applyAdjustments();
@@ -1198,7 +1006,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.updateHistoryText();
             elseif app.CurveManager.RemoveMode
                 app.CurveManager.removePoint(x, y);
-                UIManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
+                PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
                 drawnow;
                 stop(app.AdjustmentTimer);
                 app.applyAdjustments();

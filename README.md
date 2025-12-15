@@ -89,7 +89,7 @@ The application follows a modular design with separate manager classes:
 - **HistoryManager.m**: Undo/redo functionality
 - **CurveManager.m**: RGB curve manipulation
 - **FilterManager.m**: Filter state management
-- **UIManager.m**: Histogram and curve plotting
+- **PlotManager.m**: Histogram and curve plotting
 - **MetadataExtractor.m**: EXIF data extraction
 
 ### UML Class Diagram

@@ -1,4 +1,4 @@
-classdef UIManager < handle
+classdef PlotManager < handle
     
     methods (Static)
         
