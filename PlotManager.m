@@ -1,3 +1,12 @@
+% Project: Mini Photoshop
+% Author: Francesco Albano - LJ2506219
+% University: BUAA
+% Course: Technical Computing & Programming for Engineers
+% Date: 16/12/2025
+% Version: v1.0 (final delivery)
+% GitHub: https://github.com/fra2404/Mini_Photoshop
+% Description: Contains static methods for updating histograms and curve plots in the GUI.
+
 classdef PlotManager < handle
     
     methods (Static)

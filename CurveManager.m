@@ -1,3 +1,12 @@
+% Project: Mini Photoshop
+% Author: Francesco Albano - LJ2506219
+% University: BUAA
+% Course: Technical Computing & Programming for Engineers
+% Date: 16/12/2025
+% Version: v1.0 (final delivery)
+% GitHub: https://github.com/fra2404/Mini_Photoshop
+% Description: Manages the RGB curve points for tone adjustments. Supports adding, removing, and resetting control points for interactive curve editing.
+
 classdef CurveManager < handle
     
     properties
