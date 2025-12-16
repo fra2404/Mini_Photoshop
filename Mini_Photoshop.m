@@ -47,7 +47,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         HistoryTab matlab.ui.container.Tab
         HistoryText matlab.ui.control.TextArea
         ExportLogButton matlab.ui.control.Button
-        CurveTab matlab.ui.container.Tab
         CurveAxes matlab.ui.control.UIAxes
         CurveChannelLabel matlab.ui.control.Label
         CurveChannelDropDown matlab.ui.control.DropDown
@@ -157,13 +156,12 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                     return;
                 end
             end
-            [file, path] = uigetfile({'*.jpg;*.png', 'Image Files (*.jpg, *.png)'});
-            if isequal(file, 0)
+            [img, fullpath] = ImageIOManager.loadImageDialog(app.UIFigure);
+            if isempty(img)
                 return;
             end
-            fullpath = fullfile(path, file);
-            app.OriginalImage = imread(fullpath);
-            info = imfinfo(fullpath);
+            app.OriginalImage = img;
+            info = ImageIOManager.getImageInfo(fullpath);
             textLines = {};
             textLines{end+1} = sprintf('Format: %s', info.Format);
             textLines{end+1} = sprintf('Size: %dx%d pixels', info.Width, info.Height);
@@ -211,16 +209,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 uialert(app.UIFigure, 'No image loaded', 'Error');
                 return;
             end
-            [file, path] = uiputfile({'*.jpg', 'JPEG'; '*.png', 'PNG'}, 'Save image');
-            if isequal(file, 0)
-                return;
+            success = ImageIOManager.saveImageDialog(app.UIFigure, app.CurrentImage);
+            if success
+                uialert(app.UIFigure, 'Image saved successfully', 'Confirm', 'Icon', 'success');
+                app.HasUnsavedChanges = false;
+                app.HistoryManager.addToHistoryLog('Image saved');
+                app.updateHistoryText();
             end
-            fullpath = fullfile(path, file);
-            imwrite(app.CurrentImage, fullpath);
-            uialert(app.UIFigure, 'Image saved successfully', 'Confirm', 'Icon', 'success');
-            app.HasUnsavedChanges = false;
-            app.HistoryManager.addToHistoryLog('Image saved');
-            app.updateHistoryText();
         end
 
         % Button pushed function: ResetButton
@@ -812,86 +807,163 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             % Create PlaceholderLabel
             app.PlaceholderLabel = uilabel(app.UIFigure, 'Text', 'Load an image to start', 'Position', [150 300 400 80], 'HorizontalAlignment', 'center', 'FontSize', 18, 'FontWeight', 'bold');
 
-            % Toolbar buttons
-            app.OpenButton = uibutton(app.UIFigure, 'push', 'Text', 'Open Image', 'Position', [10 650 100 30], 'BackgroundColor', [0.8 1 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.OpenButtonPushed);
-            app.SaveButton = uibutton(app.UIFigure, 'push', 'Text', 'Save Image', 'Position', [120 650 100 30], 'BackgroundColor', [0.8 0.9 1], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.SaveButtonPushed);
-            app.ResetButton = uibutton(app.UIFigure, 'push', 'Text', 'Reset', 'Position', [230 650 100 30], 'BackgroundColor', [1 0.8 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.ResetButtonPushed);
-            app.UndoButton = uibutton(app.UIFigure, 'push', 'Text', 'Undo', 'Position', [340 650 100 30], 'BackgroundColor', [0.9 0.9 0.9], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.UndoButtonPushed);
-            app.RedoButton = uibutton(app.UIFigure, 'push', 'Text', 'Redo', 'Position', [450 650 100 30], 'BackgroundColor', [0.9 0.9 0.9], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.RedoButtonPushed);
-            app.ShowOriginalButton = uibutton(app.UIFigure, 'push', 'Text', 'Show Original', 'Position', [560 650 120 30], 'BackgroundColor', [1 1 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.ShowOriginalButtonPushed);
+
+
+            % Menu bar (enhanced)
+            % File Menu
+            fileMenu = uimenu(app.UIFigure, 'Text', 'File');
+            uimenu(fileMenu, 'Text', 'Open Image...', 'Accelerator', 'O', 'MenuSelectedFcn', @(src, event) app.OpenButtonPushed());
+            uimenu(fileMenu, 'Text', 'Save Image...', 'Accelerator', 'S', 'MenuSelectedFcn', @(src, event) app.SaveButtonPushed());
+            uimenu(fileMenu, 'Separator', 'on', 'Text', 'Exit', 'Accelerator', 'Q', 'MenuSelectedFcn', @(src, event) close(app.UIFigure));
+
+            % Edit Menu
+            editMenu = uimenu(app.UIFigure, 'Text', 'Edit');
+            uimenu(editMenu, 'Text', 'Reset', 'Accelerator', 'R', 'MenuSelectedFcn', @(src, event) app.ResetButtonPushed());
+            uimenu(editMenu, 'Text', 'Undo', 'Accelerator', 'Z', 'MenuSelectedFcn', @(src, event) app.UndoButtonPushed());
+            uimenu(editMenu, 'Text', 'Redo', 'Accelerator', 'Y', 'MenuSelectedFcn', @(src, event) app.RedoButtonPushed());
+
+            % Toolbar buttons 
+            app.ResetButton = uibutton(app.UIFigure, 'push', 'Text', 'Reset', 'Position', [10 650 100 30], 'BackgroundColor', [1 0.8 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.ResetButtonPushed);
+            app.UndoButton = uibutton(app.UIFigure, 'push', 'Text', 'Undo', 'Position', [120 650 100 30], 'BackgroundColor', [0.9 0.9 0.9], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.UndoButtonPushed);
+            app.RedoButton = uibutton(app.UIFigure, 'push', 'Text', 'Redo', 'Position', [230 650 100 30], 'BackgroundColor', [0.9 0.9 0.9], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.RedoButtonPushed);
+            app.ShowOriginalButton = uibutton(app.UIFigure, 'push', 'Text', 'Show Original', 'Position', [340 650 120 30], 'BackgroundColor', [1 1 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.ShowOriginalButtonPushed);
 
             % Create TabGroup
             app.TabGroup = uitabgroup(app.UIFigure, 'Position', [750 60 350 580]);
 
-            % Adjustments Tab
+            % Adjustments Tab with scrollable panel
             app.AdjustmentsTab = uitab(app.TabGroup, 'Title', 'Adjustments');
-            % Adjustments
-            app.BrightnessLabel = uilabel(app.AdjustmentsTab, 'Text', 'Brightness', 'Position', [30 300 80 20], 'FontWeight', 'bold');
-            app.BrightnessSlider = uislider(app.AdjustmentsTab, 'Limits', [-100 100], 'Value', 0, 'Position', [120 305 150 3], 'ValueChangedFcn', @app.BrightnessSliderValueChanged);
-            app.BrightnessField = uieditfield(app.AdjustmentsTab, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 300 50 20], 'ValueChangedFcn', @app.BrightnessFieldValueChanged);
-            app.ContrastLabel = uilabel(app.AdjustmentsTab, 'Text', 'Contrast', 'Position', [30 250 80 20], 'FontWeight', 'bold');
-            app.ContrastSlider = uislider(app.AdjustmentsTab, 'Limits', [-100 100], 'Value', 0, 'Position', [120 255 150 3], 'ValueChangedFcn', @app.ContrastSliderValueChanged);
-            app.ContrastField = uieditfield(app.AdjustmentsTab, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 250 50 20], 'ValueChangedFcn', @app.ContrastFieldValueChanged);
-            app.SaturationLabel = uilabel(app.AdjustmentsTab, 'Text', 'Saturation', 'Position', [30 200 80 20], 'FontWeight', 'bold');
-            app.SaturationSlider = uislider(app.AdjustmentsTab, 'Limits', [-100 100], 'Value', 0, 'Position', [120 205 150 3], 'ValueChangedFcn', @app.SaturationSliderValueChanged);
-            app.SaturationField = uieditfield(app.AdjustmentsTab, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 200 50 20], 'ValueChangedFcn', @app.SaturationFieldValueChanged);
-
-            % Transformations
-            app.Rotate90Button = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Rotate 90°', 'Position', [40 90 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate90ButtonPushed);
-            app.Rotate180Button = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Rotate 180°', 'Position', [140 90 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate180ButtonPushed);
-            app.Rotate270Button = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Rotate 270°', 'Position', [240 90 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate270ButtonPushed);
-            app.FlipHorizontalButton = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Flip H.', 'Position', [40 50 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipHorizontalButtonPushed);
-            app.FlipVerticalButton = uibutton(app.AdjustmentsTab, 'push', 'Text', 'Flip V.', 'Position', [140 50 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipVerticalButtonPushed);
-
-            % Curve RGB Tab
-            app.CurveTab = uitab(app.TabGroup, 'Title', 'Curves');
-            app.CurveAxes = uiaxes(app.CurveTab);
-            app.CurveAxes.Position = [40 180 270 350];
+            
+            % Create scrollable panel
+            scrollPanel = uipanel(app.AdjustmentsTab, 'Position', [0 0 350 580], 'Scrollable', 'on', 'AutoResizeChildren', 'off');
+            
+            % Start yPos higher than panel height to ensure scroll is enabled
+            marginTop = 100;
+            yPos = marginTop;
+            
+            % === SECTION 1: BASIC ADJUSTMENTS ===
+            yOffset = 1000;
+            topMargin = -60;
+            uilabel(scrollPanel, 'Text', 'BASIC ADJUSTMENTS', 'Position', [20 yOffset-yPos-50 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
+            uilabel(scrollPanel, 'Text', 'BASIC ADJUSTMENTS', 'Position', [20 yOffset-yPos 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
+            yPos = yPos + 50;
+            
+            % Brightness
+            app.BrightnessLabel = uilabel(scrollPanel, 'Text', 'Brightness', 'Position', [30 yOffset-yPos-30 80 20], 'FontWeight', 'bold');
+            app.BrightnessSlider = uislider(scrollPanel, 'Limits', [-100 100], 'Value', 0, 'Position', [120 yOffset-yPos-25 150 3], 'ValueChangedFcn', @app.BrightnessSliderValueChanged);
+            app.BrightnessField = uieditfield(scrollPanel, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 yOffset-yPos-30 50 20], 'ValueChangedFcn', @app.BrightnessFieldValueChanged);
+            yPos = yPos + 50;
+            
+            % Contrast
+            app.ContrastLabel = uilabel(scrollPanel, 'Text', 'Contrast', 'Position', [30 yOffset-yPos-30 80 20], 'FontWeight', 'bold');
+            app.ContrastSlider = uislider(scrollPanel, 'Limits', [-100 100], 'Value', 0, 'Position', [120 yOffset-yPos-25 150 3], 'ValueChangedFcn', @app.ContrastSliderValueChanged);
+            app.ContrastField = uieditfield(scrollPanel, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 yOffset-yPos-30 50 20], 'ValueChangedFcn', @app.ContrastFieldValueChanged);
+            yPos = yPos + 50;
+            
+            % Saturation
+            app.SaturationLabel = uilabel(scrollPanel, 'Text', 'Saturation', 'Position', [30 yOffset-yPos-30 80 20], 'FontWeight', 'bold');
+            app.SaturationSlider = uislider(scrollPanel, 'Limits', [-100 100], 'Value', 0, 'Position', [120 yOffset-yPos-25 150 3], 'ValueChangedFcn', @app.SaturationSliderValueChanged);
+            app.SaturationField = uieditfield(scrollPanel, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 yOffset-yPos-30 50 20], 'ValueChangedFcn', @app.SaturationFieldValueChanged);
+            yPos = yPos + 50;
+            
+            % Separator line
+            uilabel(scrollPanel, 'Text', '', 'Position', [20 yOffset-yPos-10 310 2], 'BackgroundColor', [0.7 0.7 0.7]);
+            yPos = yPos + 30;
+            
+            % === SECTION 2: RGB CURVES ===
+            uilabel(scrollPanel, 'Text', 'RGB CURVES', 'Position', [20 yOffset-yPos-30 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
+            yPos = yPos + 40;
+            
+            % Curve axes
+            app.CurveAxes = uiaxes(scrollPanel);
+            app.CurveAxes.Position = [40 yOffset-yPos-350 270 350];
             app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
-            app.CurveChannelLabel = uilabel(app.CurveTab, 'Text', 'Channel:', 'Position', [10 140 60 20]);
-            app.CurveChannelDropDown = uidropdown(app.CurveTab, 'Items', {'R', 'G', 'B', 'RGB'}, 'Value', 'RGB', 'Position', [70 140 80 20], 'ValueChangedFcn', @app.CurveChannelDropDownValueChanged);
-            app.AddPointButton = uibutton(app.CurveTab, 'push', 'Text', 'Add Point', 'Position', [160 140 80 25], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.AddPointButtonPushed);
-            app.RemovePointButton = uibutton(app.CurveTab, 'push', 'Text', 'Remove Point', 'Position', [250 140 90 25], 'BackgroundColor', [1 0.8 0.8], 'ButtonPushedFcn', @app.RemovePointButtonPushed);
-            app.ResetCurveButton = uibutton(app.CurveTab, 'push', 'Text', 'Reset Curves', 'Position', [10 100 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ResetCurveButtonPushed);
+            yPos = yPos + 360;
+            
+            % Curve controls
+            app.CurveChannelLabel = uilabel(scrollPanel, 'Text', 'Channel:', 'Position', [10 yOffset-yPos-25 60 20]);
+            app.CurveChannelDropDown = uidropdown(scrollPanel, 'Items', {'R', 'G', 'B', 'RGB'}, 'Value', 'RGB', 'Position', [70 yOffset-yPos-25 80 20], 'ValueChangedFcn', @app.CurveChannelDropDownValueChanged);
+            app.AddPointButton = uibutton(scrollPanel, 'push', 'Text', 'Add Point', 'Position', [160 yOffset-yPos-25 80 25], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.AddPointButtonPushed);
+            app.RemovePointButton = uibutton(scrollPanel, 'push', 'Text', 'Remove Point', 'Position', [250 yOffset-yPos-25 90 25], 'BackgroundColor', [1 0.8 0.8], 'ButtonPushedFcn', @app.RemovePointButtonPushed);
+            yPos = yPos + 35;
+            
+            app.ResetCurveButton = uibutton(scrollPanel, 'push', 'Text', 'Reset Curves', 'Position', [10 yOffset-yPos-25 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ResetCurveButtonPushed);
+            yPos = yPos + 40;
+            
+            % Separator line
+            uilabel(scrollPanel, 'Text', '', 'Position', [20 yOffset-yPos-10 310 2], 'BackgroundColor', [0.7 0.7 0.7]);
+            yPos = yPos + 30;
+            
+            % === SECTION 3: TRANSFORMATIONS ===
+            uilabel(scrollPanel, 'Text', 'TRANSFORMATIONS', 'Position', [20 yOffset-yPos-30 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
+            yPos = yPos + 40;
+            
+            % Rotation buttons
+            app.Rotate90Button = uibutton(scrollPanel, 'push', 'Text', 'Rotate 90°', 'Position', [40 yOffset-yPos-35 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate90ButtonPushed);
+            app.Rotate180Button = uibutton(scrollPanel, 'push', 'Text', 'Rotate 180°', 'Position', [140 yOffset-yPos-35 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate180ButtonPushed);
+            app.Rotate270Button = uibutton(scrollPanel, 'push', 'Text', 'Rotate 270°', 'Position', [240 yOffset-yPos-35 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate270ButtonPushed);
+            yPos = yPos + 45;
+            
+            % Flip buttons
+            app.FlipHorizontalButton = uibutton(scrollPanel, 'push', 'Text', 'Flip H.', 'Position', [40 yOffset-yPos-35 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipHorizontalButtonPushed);
+            app.FlipVerticalButton = uibutton(scrollPanel, 'push', 'Text', 'Flip V.', 'Position', [140 yOffset-yPos-35 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipVerticalButtonPushed);
+            yPos = yPos + 60;
+
+            % Add invisible spacer to control scroll height
+            uilabel(scrollPanel, 'Text', '', 'Position', [0 yOffset-yPos-40 1 1], 'Visible', 'off');
 
             % Filters Tab
             app.FiltersTab = uitab(app.TabGroup, 'Title', 'Filters');
             
+            % 4x2 
+            tabW = 350; tabH = 580;
+            nRows = 4; nCols = 2;
+            imgW = 80; imgH = 60; labelH = 16; btnH = 18;
+            gridW = nCols*imgW;
+            gridH = nRows*(imgH+btnH+labelH);
+            padX = (tabW-gridW)/(nCols+1);
+            padY = ((tabH-60)-gridH)/(nRows+1);
+            padY = padY + 4; 
+            startX = padX;
+            startY = tabH - padY - imgH;
+            yStep = imgH + btnH + labelH + padY;
+            xStep = imgW + padX;
+
             % Row 1
-            app.FilterGaussianBlurImg = uiimage(app.FiltersTab, 'Position', [10 300 50 50]);
-            app.FilterGaussianBlurBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [10 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Blur', 'Position', [10 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.FilterSharpenImg = uiimage(app.FiltersTab, 'Position', [70 300 50 50]);
-            app.FilterSharpenBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [70 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Sharpen', 'Position', [70 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.FilterSobelImg = uiimage(app.FiltersTab, 'Position', [130 300 50 50]);
-            app.FilterSobelBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [130 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Edges', 'Position', [130 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.FilterCannyImg = uiimage(app.FiltersTab, 'Position', [190 300 50 50]);
-            app.FilterCannyBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [190 250 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Canny', 'Position', [190 220 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
+            app.FilterGaussianBlurImg = uiimage(app.FiltersTab, 'Position', [startX startY imgW imgH]);
+            app.FilterSharpenImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY imgW imgH]);
+            app.FilterGaussianBlurBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            app.FilterSharpenBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Blur', 'Position', [startX startY-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+            uilabel(app.FiltersTab, 'Text', 'Sharpen', 'Position', [startX+xStep startY-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+
             % Row 2
-            app.FilterEmbossImg = uiimage(app.FiltersTab, 'Position', [10 160 50 50]);
-            app.FilterEmbossBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [10 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Emboss', 'Position', [10 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.FilterHistEqImg = uiimage(app.FiltersTab, 'Position', [70 160 50 50]);
-            app.FilterHistEqBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [70 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Hist Eq', 'Position', [70 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.FilterAdaptHistImg = uiimage(app.FiltersTab, 'Position', [130 160 50 50]);
-            app.FilterAdaptHistBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [130 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Adapt Hist', 'Position', [130 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.FilterNoiseReductionImg = uiimage(app.FiltersTab, 'Position', [190 160 50 50]);
-            app.FilterNoiseReductionBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [190 110 50 20], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Noise Red', 'Position', [190 80 50 20], 'HorizontalAlignment', 'center', 'FontSize', 8);
-            
-            app.ApplyFiltersButton = uibutton(app.FiltersTab, 'push', 'Text', 'Apply Selected Filters', 'Position', [10 20 150 30], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.ApplyFiltersButtonPushed);
+            app.FilterSobelImg = uiimage(app.FiltersTab, 'Position', [startX startY-yStep imgW imgH]);
+            app.FilterCannyImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY-yStep imgW imgH]);
+            app.FilterSobelBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            app.FilterCannyBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Edges', 'Position', [startX startY-yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+            uilabel(app.FiltersTab, 'Text', 'Canny', 'Position', [startX+xStep startY-yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+
+            % Row 3
+            app.FilterEmbossImg = uiimage(app.FiltersTab, 'Position', [startX startY-2*yStep imgW imgH]);
+            app.FilterHistEqImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY-2*yStep imgW imgH]);
+            app.FilterEmbossBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-2*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            app.FilterHistEqBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-2*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Emboss', 'Position', [startX startY-2*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+            uilabel(app.FiltersTab, 'Text', 'Hist Eq', 'Position', [startX+xStep startY-2*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+
+            % Row 4
+            app.FilterAdaptHistImg = uiimage(app.FiltersTab, 'Position', [startX startY-3*yStep imgW imgH]);
+            app.FilterNoiseReductionImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY-3*yStep imgW imgH]);
+            app.FilterAdaptHistBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-3*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            app.FilterNoiseReductionBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-3*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
+            uilabel(app.FiltersTab, 'Text', 'Adapt Hist', 'Position', [startX startY-3*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+            uilabel(app.FiltersTab, 'Text', 'Noise Red', 'Position', [startX+xStep startY-3*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
+
+            lastRowY = startY-3*yStep;
+            applyBtnY = lastRowY-btnH-labelH-padY-18;
+            app.ApplyFiltersButton = uibutton(app.FiltersTab, 'push', 'Text', 'Apply Selected Filters', 'Position', [round((tabW-170)/2) applyBtnY 170 24], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.ApplyFiltersButtonPushed);
 
             % Info Tab
             app.InfoTab = uitab(app.TabGroup, 'Title', 'Info');
