@@ -11,48 +11,101 @@ classdef ImageFilter < handle
     
     methods (Static)
         
-        function filtered = applyFilter(img, filter)
+        function filtered = applyFilter(img, filter, useGPU)
+            if nargin < 3
+                useGPU = false;
+            end
+            
             switch filter
                 case 'Gaussian Blur'
-                    filtered = imgaussfilt(img, 10);
+                    if useGPU && canUseGPU()
+                        gpuImg = gpuArray(img);
+                        filtered = gather(imgaussfilt(gpuImg, 10));
+                    else
+                        filtered = imgaussfilt(img, 10);
+                    end
                 case 'Sharpen'
-                    filtered = imsharpen(img);
+                    if useGPU && canUseGPU()
+                        gpuImg = gpuArray(img);
+                        filtered = gather(imsharpen(gpuImg));
+                    else
+                        filtered = imsharpen(img);
+                    end
                 case 'Edge Detection (Sobel)'
                     if size(img, 3) == 3
-                        gray = rgb2gray(img);
-                        edges = edge(gray, 'sobel');
-                        filtered = uint8(repmat(edges, [1 1 3]) * 255);
+                        if useGPU && canUseGPU()
+                            gpuImg = gpuArray(img);
+                            gray = rgb2gray(gpuImg);
+                            edges = edge(gather(gray), 'sobel');
+                            filtered = uint8(repmat(edges, [1 1 3]) * 255);
+                        else
+                            gray = rgb2gray(img);
+                            edges = edge(gray, 'sobel');
+                            filtered = uint8(repmat(edges, [1 1 3]) * 255);
+                        end
                     else
                         edges = edge(img, 'sobel');
                         filtered = uint8(edges * 255);
                     end
                 case 'Edge Detection (Canny)'
                     if size(img, 3) == 3
-                        gray = rgb2gray(img);
-                        edges = edge(gray, 'canny');
-                        filtered = uint8(repmat(edges, [1 1 3]) * 255);
+                        if useGPU && canUseGPU()
+                            gpuImg = gpuArray(img);
+                            gray = rgb2gray(gpuImg);
+                            edges = edge(gather(gray), 'canny');
+                            filtered = uint8(repmat(edges, [1 1 3]) * 255);
+                        else
+                            gray = rgb2gray(img);
+                            edges = edge(gray, 'canny');
+                            filtered = uint8(repmat(edges, [1 1 3]) * 255);
+                        end
                     else
                         edges = edge(img, 'canny');
                         filtered = uint8(edges * 255);
                     end
                 case 'Emboss'
                     kernel = [-2 -1 0; -1 1 1; 0 1 2];
-                    filtered = imfilter(img, kernel);
+                    if useGPU && canUseGPU()
+                        gpuImg = gpuArray(img);
+                        gpuKernel = gpuArray(kernel);
+                        filtered = gather(imfilter(gpuImg, gpuKernel));
+                    else
+                        filtered = imfilter(img, kernel);
+                    end
                 case 'Automatic correction (histeq)'
                     filtered = histeq(img);
                 case 'Adaptive correction (adapthisteq)'
                     if size(img, 3) == 3
                         filtered = img;
-                        for k = 1:3
-                            filtered(:,:,k) = adapthisteq(img(:,:,k));
+                        if useGPU && canUseGPU()
+                            gpuImg = gpuArray(img);
+                            for k = 1:3
+                                filtered(:,:,k) = gather(adapthisteq(gpuImg(:,:,k)));
+                            end
+                        else
+                            for k = 1:3
+                                filtered(:,:,k) = adapthisteq(img(:,:,k));
+                            end
                         end
                     else
-                        filtered = adapthisteq(img);
+                        if useGPU && canUseGPU()
+                            gpuImg = gpuArray(img);
+                            filtered = gather(adapthisteq(gpuImg));
+                        else
+                            filtered = adapthisteq(img);
+                        end
                     end
                 case 'Noise reduction'
                     filtered = img;
-                    for k = 1:size(img, 3)
-                        filtered(:,:,k) = medfilt2(img(:,:,k), [5 5]);
+                    if useGPU && canUseGPU()
+                        gpuImg = gpuArray(img);
+                        for k = 1:size(img, 3)
+                            filtered(:,:,k) = gather(medfilt2(gpuImg(:,:,k), [5 5]));
+                        end
+                    else
+                        for k = 1:size(img, 3)
+                            filtered(:,:,k) = medfilt2(img(:,:,k), [5 5]);
+                        end
                     end
                 otherwise
                     filtered = img; % No filter applied

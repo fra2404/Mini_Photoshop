@@ -84,6 +84,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         HasUnsavedChanges
         ShowingOriginal
         AdjustmentTimer  % timer for debouncing adjustments
+        UseGPU  % flag to enable GPU acceleration
     end
 
     % Callbacks that handle component events
@@ -101,6 +102,12 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentSaturation = 0;
             app.HasUnsavedChanges = false;
             app.ShowingOriginal = false;
+            app.UseGPU = canUseGPU();
+            if app.UseGPU
+                fprintf('GPU acceleration enabled\n');
+            else
+                fprintf('GPU not available, using CPU\n');
+            end
             app.AdjustmentTimer = timer('ExecutionMode', 'singleShot', 'StartDelay', 0.2, 'TimerFcn', @app.applyAdjustmentsWithLog);
             app.UIAxes.Visible = 'off';
             app.HistogramAxes.Visible = 'off';
@@ -118,7 +125,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 return;
             end
             % Always apply from original image
-            adjusted = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
+            adjusted = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.UseGPU);
             
             % Apply selected filters on top of adjustments
             app.FilterManager.updateFromButtons(struct(...
@@ -130,7 +137,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 'HistEq', app.FilterHistEqBtn, ...
                 'AdaptHist', app.FilterAdaptHistBtn, ...
                 'NoiseReduction', app.FilterNoiseReductionBtn));
-            adjusted = app.FilterManager.applySelectedFilters(adjusted);
+            adjusted = app.FilterManager.applySelectedFilters(adjusted, app.UseGPU);
             
             cla(app.UIAxes);
             imshow(adjusted, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -467,43 +474,43 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
-            filtered = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
+            filtered = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.UseGPU);
             filtersApplied = {};
             if app.FilterGaussianBlurBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Gaussian Blur');
+                filtered = ImageFilter.applyFilter(filtered, 'Gaussian Blur', app.UseGPU);
                 filtersApplied{end+1} = 'Gaussian Blur';
             end
             if app.FilterSharpenBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Sharpen');
+                filtered = ImageFilter.applyFilter(filtered, 'Sharpen', app.UseGPU);
                 filtersApplied{end+1} = 'Sharpen';
             end
             if app.FilterSobelBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Sobel)');
+                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Sobel)', app.UseGPU);
                 filtersApplied{end+1} = 'Edge Detection (Sobel)';
             end
             if app.FilterCannyBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Canny)');
+                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Canny)', app.UseGPU);
                 filtersApplied{end+1} = 'Edge Detection (Canny)';
             end
             if app.FilterEmbossBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Emboss');
+                filtered = ImageFilter.applyFilter(filtered, 'Emboss', app.UseGPU);
                 filtersApplied{end+1} = 'Emboss';
             end
             if app.FilterHistEqBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Automatic correction (histeq)');
+                filtered = ImageFilter.applyFilter(filtered, 'Automatic correction (histeq)', app.UseGPU);
                 filtersApplied{end+1} = 'Automatic correction (histeq)';
             end
             if app.FilterAdaptHistBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Adaptive correction (adapthisteq)');
+                filtered = ImageFilter.applyFilter(filtered, 'Adaptive correction (adapthisteq)', app.UseGPU);
                 filtersApplied{end+1} = 'Adaptive correction (adapthisteq)';
             end
             if app.FilterNoiseReductionBtn.Value
-                filtered = ImageFilter.applyFilter(filtered, 'Noise reduction');
+                filtered = ImageFilter.applyFilter(filtered, 'Noise reduction', app.UseGPU);
                 filtersApplied{end+1} = 'Noise reduction';
             end
             if isempty(filtersApplied)
                 % Reset to original image with current adjustments applied
-                app.CurrentImage = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
+                app.CurrentImage = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.UseGPU);
                 app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
                 cla(app.UIAxes);
                 imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
@@ -683,11 +690,11 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             end
             
             % Gaussian Blur
-            filtered = ImageFilter.applyFilter(img, 'Gaussian Blur');
+            filtered = ImageFilter.applyFilter(img, 'Gaussian Blur', false);
             app.FilterGaussianBlurImg.ImageSource = filtered;
             
             % Sharpen
-            filtered = ImageFilter.applyFilter(img, 'Sharpen');
+            filtered = ImageFilter.applyFilter(img, 'Sharpen', false);
             app.FilterSharpenImg.ImageSource = filtered;
             
             % Sobel
@@ -706,19 +713,19 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.FilterCannyImg.ImageSource = filtered;
             
             % Emboss
-            filtered = ImageFilter.applyFilter(img, 'Emboss');
+            filtered = ImageFilter.applyFilter(img, 'Emboss', false);
             app.FilterEmbossImg.ImageSource = filtered;
             
             % Hist Eq
-            filtered = ImageFilter.applyFilter(img, 'Automatic correction (histeq)');
+            filtered = ImageFilter.applyFilter(img, 'Automatic correction (histeq)', false);
             app.FilterHistEqImg.ImageSource = filtered;
             
             % Adapt Hist
-            filtered = ImageFilter.applyFilter(img, 'Adaptive correction (adapthisteq)');
+            filtered = ImageFilter.applyFilter(img, 'Adaptive correction (adapthisteq)', false);
             app.FilterAdaptHistImg.ImageSource = filtered;
             
             % Noise Reduction
-            filtered = ImageFilter.applyFilter(img, 'Noise reduction');
+            filtered = ImageFilter.applyFilter(img, 'Noise reduction', false);
             app.FilterNoiseReductionImg.ImageSource = filtered;
         end
 

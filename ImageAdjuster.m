@@ -11,28 +11,61 @@ classdef ImageAdjuster < handle
     
     methods (Static)
         
-        function adjusted = adjustBrightness(img, value)
-            adjusted = double(img) + value * 0.5;
-            adjusted = uint8(max(0, min(255, adjusted)));
+        function adjusted = adjustBrightness(img, value, useGPU)
+            if nargin < 3
+                useGPU = false;
+            end
+            if useGPU && canUseGPU()
+                gpuImg = gpuArray(double(img));
+                gpuAdjusted = gpuImg + value * 0.5;
+                gpuAdjusted = max(0, min(255, gpuAdjusted));
+                adjusted = uint8(gather(gpuAdjusted));
+            else
+                adjusted = double(img) + value * 0.5;
+                adjusted = uint8(max(0, min(255, adjusted)));
+            end
         end
         
-        function adjusted = adjustContrast(img, value)
+        function adjusted = adjustContrast(img, value, useGPU)
+            if nargin < 3
+                useGPU = false;
+            end
             factor = 1 + value / 200;
-            adjusted = (double(img) - 128) * factor + 128;
-            adjusted = uint8(max(0, min(255, adjusted)));
+            if useGPU && canUseGPU()
+                gpuImg = gpuArray(double(img));
+                gpuAdjusted = (gpuImg - 128) * factor + 128;
+                gpuAdjusted = max(0, min(255, gpuAdjusted));
+                adjusted = uint8(gather(gpuAdjusted));
+            else
+                adjusted = (double(img) - 128) * factor + 128;
+                adjusted = uint8(max(0, min(255, adjusted)));
+            end
         end
         
-        function adjusted = adjustSaturation(img, value)
+        function adjusted = adjustSaturation(img, value, useGPU)
+            if nargin < 3
+                useGPU = false;
+            end
             if size(img, 3) == 3
-                hsv = rgb2hsv(img);
-                hsv(:,:,2) = max(0, min(1, hsv(:,:,2) + value / 100));
-                adjusted = im2uint8(hsv2rgb(hsv));
+                if useGPU && canUseGPU()
+                    gpuImg = gpuArray(img);
+                    hsv = rgb2hsv(gpuImg);
+                    hsv(:,:,2) = max(0, min(1, hsv(:,:,2) + value / 100));
+                    adjusted = im2uint8(gather(hsv2rgb(hsv)));
+                else
+                    hsv = rgb2hsv(img);
+                    hsv(:,:,2) = max(0, min(1, hsv(:,:,2) + value / 100));
+                    adjusted = im2uint8(hsv2rgb(hsv));
+                end
             else
                 adjusted = img; % No saturation adjustment for grayscale
             end
         end
         
-        function adjusted = applyCurves(img, pointsR, pointsG, pointsB)
+        function adjusted = applyCurves(img, pointsR, pointsG, pointsB, useGPU)
+            if nargin < 5
+                useGPU = false;
+            end
             if size(img, 3) == 3
                 adjusted = img;
                 % Create LUT for R channel
@@ -42,7 +75,6 @@ classdef ImageAdjuster < handle
                 else
                     lutR = uint8(0:255);  % Identity
                 end
-                adjusted(:,:,1) = lutR(uint16(double(img(:,:,1)) + 1));
                 
                 % Create LUT for G channel
                 if size(pointsG, 2) >= 2
@@ -51,7 +83,6 @@ classdef ImageAdjuster < handle
                 else
                     lutG = uint8(0:255);  % Identity
                 end
-                adjusted(:,:,2) = lutG(uint16(double(img(:,:,2)) + 1));
                 
                 % Create LUT for B channel
                 if size(pointsB, 2) >= 2
@@ -60,7 +91,20 @@ classdef ImageAdjuster < handle
                 else
                     lutB = uint8(0:255);  % Identity
                 end
-                adjusted(:,:,3) = lutB(uint16(double(img(:,:,3)) + 1));
+                
+                if useGPU && canUseGPU()
+                    gpuImg = gpuArray(img);
+                    gpuLutR = gpuArray(lutR);
+                    gpuLutG = gpuArray(lutG);
+                    gpuLutB = gpuArray(lutB);
+                    adjusted(:,:,1) = gather(gpuLutR(uint16(double(gpuImg(:,:,1)) + 1)));
+                    adjusted(:,:,2) = gather(gpuLutG(uint16(double(gpuImg(:,:,2)) + 1)));
+                    adjusted(:,:,3) = gather(gpuLutB(uint16(double(gpuImg(:,:,3)) + 1)));
+                else
+                    adjusted(:,:,1) = lutR(uint16(double(img(:,:,1)) + 1));
+                    adjusted(:,:,2) = lutG(uint16(double(img(:,:,2)) + 1));
+                    adjusted(:,:,3) = lutB(uint16(double(img(:,:,3)) + 1));
+                end
             else
                 % For grayscale, apply average curve
                 avgPoints = (pointsR + pointsG + pointsB) / 3;
@@ -70,17 +114,27 @@ classdef ImageAdjuster < handle
                 else
                     lutGray = uint8(0:255);  % Identity
                 end
-                adjusted = lutGray(uint16(double(img) + 1));
+                
+                if useGPU && canUseGPU()
+                    gpuImg = gpuArray(img);
+                    gpuLut = gpuArray(lutGray);
+                    adjusted = gather(gpuLut(uint16(double(gpuImg) + 1)));
+                else
+                    adjusted = lutGray(uint16(double(img) + 1));
+                end
             end
         end
         
-        function adjusted = applyAllAdjustments(img, brightness, contrast, saturation, pointsR, pointsG, pointsB)
+        function adjusted = applyAllAdjustments(img, brightness, contrast, saturation, pointsR, pointsG, pointsB, useGPU)
             % Always start from original image
             % Apply in correct order: Brightness -> Contrast -> Curves -> Saturation
-            adjusted = ImageAdjuster.adjustBrightness(img, brightness);
-            adjusted = ImageAdjuster.adjustContrast(adjusted, contrast);
-            adjusted = ImageAdjuster.applyCurves(adjusted, pointsR, pointsG, pointsB);
-            adjusted = ImageAdjuster.adjustSaturation(adjusted, saturation);
+            if nargin < 8
+                useGPU = false;
+            end
+            adjusted = ImageAdjuster.adjustBrightness(img, brightness, useGPU);
+            adjusted = ImageAdjuster.adjustContrast(adjusted, contrast, useGPU);
+            adjusted = ImageAdjuster.applyCurves(adjusted, pointsR, pointsG, pointsB, useGPU);
+            adjusted = ImageAdjuster.adjustSaturation(adjusted, saturation, useGPU);
         end
         
     end

@@ -27,31 +27,34 @@ classdef FilterManager < handle
                 'NoiseReduction', false);
         end
         
-        function filtered = applySelectedFilters(obj, img)
+        function filtered = applySelectedFilters(obj, img, useGPU)
+            if nargin < 3
+                useGPU = false;
+            end
             filtered = img;
             if obj.FilterStates.GaussianBlur
-                filtered = ImageFilter.applyFilter(filtered, 'Gaussian Blur');
+                filtered = ImageFilter.applyFilter(filtered, 'Gaussian Blur', useGPU);
             end
             if obj.FilterStates.Sharpen
-                filtered = ImageFilter.applyFilter(filtered, 'Sharpen');
+                filtered = ImageFilter.applyFilter(filtered, 'Sharpen', useGPU);
             end
             if obj.FilterStates.Sobel
-                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Sobel)');
+                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Sobel)', useGPU);
             end
             if obj.FilterStates.Canny
-                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Canny)');
+                filtered = ImageFilter.applyFilter(filtered, 'Edge Detection (Canny)', useGPU);
             end
             if obj.FilterStates.Emboss
-                filtered = ImageFilter.applyFilter(filtered, 'Emboss');
+                filtered = ImageFilter.applyFilter(filtered, 'Emboss', useGPU);
             end
             if obj.FilterStates.HistEq
-                filtered = ImageFilter.applyFilter(filtered, 'Automatic correction (histeq)');
+                filtered = ImageFilter.applyFilter(filtered, 'Automatic correction (histeq)', useGPU);
             end
             if obj.FilterStates.AdaptHist
-                filtered = ImageFilter.applyFilter(filtered, 'Adaptive correction (adapthisteq)');
+                filtered = ImageFilter.applyFilter(filtered, 'Adaptive correction (adapthisteq)', useGPU);
             end
             if obj.FilterStates.NoiseReduction
-                filtered = ImageFilter.applyFilter(filtered, 'Noise reduction');
+                filtered = ImageFilter.applyFilter(filtered, 'Noise reduction', useGPU);
             end
         end
         
