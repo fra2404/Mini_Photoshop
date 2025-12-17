@@ -14,15 +14,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         UIFigure matlab.ui.Figure
         UIAxes matlab.ui.control.UIAxes
         HistogramAxes matlab.ui.control.UIAxes
-        PlaceholderLabel matlab.ui.control.Label
+        PlaceholderLabel matlab.ui.control.Image
         OpenButton matlab.ui.control.Button
         SaveButton matlab.ui.control.Button
         ResetButton matlab.ui.control.Button
         UndoButton matlab.ui.control.Button
         RedoButton matlab.ui.control.Button
         ShowOriginalButton matlab.ui.control.Button
-        TabGroup matlab.ui.container.TabGroup
-        AdjustmentsTab matlab.ui.container.Tab
         BrightnessLabel matlab.ui.control.Label
         BrightnessSlider matlab.ui.control.Slider
         BrightnessField matlab.ui.control.NumericEditField
@@ -32,19 +30,13 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         SaturationLabel matlab.ui.control.Label
         SaturationSlider matlab.ui.control.Slider
         SaturationField matlab.ui.control.NumericEditField
-        FiltersTab matlab.ui.container.Tab
-        InfoTab matlab.ui.container.Tab
         ImageInfoText matlab.ui.control.TextArea
         Rotate90Button matlab.ui.control.Button
         Rotate180Button matlab.ui.control.Button
         Rotate270Button matlab.ui.control.Button
         FlipHorizontalButton matlab.ui.control.Button
         FlipVerticalButton matlab.ui.control.Button
-        CropButton matlab.ui.control.Button
-        ResizeLabel matlab.ui.control.Label
-        ResizeEdit matlab.ui.control.NumericEditField
-        ResizeButton matlab.ui.control.Button
-        HistoryTab matlab.ui.container.Tab
+
         HistoryText matlab.ui.control.TextArea
         ExportLogButton matlab.ui.control.Button
         CurveAxes matlab.ui.control.UIAxes
@@ -87,7 +79,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
     end
 
     % Callbacks that handle component events
-    methods (Access = private)
+    methods (Access = public)
 
         % Code that executes after component creation
         function startupFcn(app)
@@ -185,7 +177,12 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                     end
                 end
             end
-            app.ImageInfoText.Value = textLines;
+            % Convert cell array to string array for uitextarea
+            if iscell(textLines)
+                app.ImageInfoText.Value = textLines;
+            else
+                app.ImageInfoText.Value = {textLines};
+            end
             
             app.CurrentImage = app.OriginalImage;
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
@@ -195,6 +192,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.UIAxes.Visible = 'on';
             app.HistogramAxes.Visible = 'on';
             app.PlaceholderLabel.Visible = 'off';
+            app.OpenButton.Visible = 'off';  % Nascondi anche il bottone Upload
             app.HasUnsavedChanges = false;
             app.ShowingOriginal = false;
             app.ShowOriginalButton.Text = 'Show Original';
@@ -640,31 +638,40 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.updateHistoryText();
         end
 
-        % Button pushed function: CropButton
-        function CropButtonPushed(app, ~, ~)
-            if isempty(app.CurrentImage)
-                uialert(app.UIFigure, 'No image loaded', 'Error');
-                return;
+        % Show Photo Info Window
+        function ShowPhotoInfoWindow(app)
+            WindowManager.ShowPhotoInfo(app.UIFigure, app.ImageInfoText.Value, app.OriginalImage);
+        end
+
+        % Show Modification History Window
+        function ShowModificationHistoryWindow(app)
+            WindowManager.ShowModificationHistory(app.UIFigure, app.HistoryManager.HistoryLog);
+        end
+
+        % Close request function: UIFigure
+        function UIFigureCloseRequest(app, ~, ~)
+            if app.HasUnsavedChanges
+                selection = uiconfirm(app.UIFigure, 'You have unsaved changes. Do you want to save before closing?', 'Confirm close', ...
+                    'Options', {'Save', 'Do not save', 'Cancel'}, 'DefaultOption', 3, 'CancelOption', 3);
+                if strcmp(selection, 'Save')
+                    % Simula salvataggio
+                    if isempty(app.CurrentImage)
+                        uialert(app.UIFigure, 'No image loaded', 'Error');
+                        return;
+                    end
+                    [file, path] = uiputfile({'*.jpg', 'JPEG'; '*.png', 'PNG'}, 'Save image');
+                    if ~isequal(file, 0)
+                        fullpath = fullfile(path, file);
+                        imwrite(app.CurrentImage, fullpath);
+                        app.HasUnsavedChanges = false;
+                    else
+                        return;
+                    end
+                elseif strcmp(selection, 'Cancel')
+                    return;
+                end
             end
-            if app.ShowingOriginal
-                app.ShowingOriginal = false;
-                app.ShowOriginalButton.Text = 'Show Original';
-            end
-            % Interactive crop
-            cropped = imcrop(app.CurrentImage);
-            if ~isempty(cropped)
-                [height, width, ~] = size(cropped);
-                app.CurrentImage = cropped;
-                app.OriginalImage = cropped;  % Update the original for persistence
-                app.updateFilterPreviews();  % Update filter previews with new base image
-                app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, [], [], []);
-                cla(app.UIAxes);
-                imshow(app.CurrentImage, 'Parent', app.UIAxes, 'InitialMagnification', 'fit');
-                PlotManager.updateHistogram(app.CurrentImage, app.HistogramAxes);
-                app.HasUnsavedChanges = true;
-                app.HistoryManager.addToHistoryLog(sprintf('Crop applied: %dx%d', width, height));
-                app.updateHistoryText();
-            end
+            delete(app.UIFigure);
         end
 
     end
@@ -748,32 +755,37 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             uialert(app.UIFigure, 'Log exported successfully', 'Confirm', 'Icon', 'success');
         end
 
-        % Close request function: UIFigure
-        function UIFigureCloseRequest(app, ~, ~)
-            if app.HasUnsavedChanges
-                selection = uiconfirm(app.UIFigure, 'You have unsaved changes. Do you want to save before closing?', 'Confirm close', ...
-                    'Options', {'Save', 'Do not save', 'Cancel'}, 'DefaultOption', 3, 'CancelOption', 3);
-                if strcmp(selection, 'Save')
-                    % Simula salvataggio
-                    if isempty(app.CurrentImage)
-                        uialert(app.UIFigure, 'No image loaded', 'Error');
-                        return;
-                    end
-                    [file, path] = uiputfile({'*.jpg', 'JPEG'; '*.png', 'PNG'}, 'Save image');
-                    if ~isequal(file, 0)
-                        fullpath = fullfile(path, file);
-                        imwrite(app.CurrentImage, fullpath);
-                        app.HasUnsavedChanges = false;
-                    else
-                        return;
-                    end
-                elseif strcmp(selection, 'Cancel')
-                    return;
+        % SizeChanged callback: RightPanel - scales content width dynamically
+        function RightPanelSizeChanged(app, ~, ~)
+            if isempty(app.RightPanel) || ~isvalid(app.RightPanel)
+                return;
+            end
+            
+            % Calculate scaling factor based on panel width
+            currentWidth = app.RightPanel.InnerPosition(3);  % Use InnerPosition for scrollable panels
+            scale = currentWidth / app.BaseRightPanelWidth;
+            
+            % Only scale if change is significant (avoid micro-adjustments)
+            if abs(scale - 1.0) < 0.01
+                return;
+            end
+            
+            % Scale all children's X position and width (keep Y/Height for vertical scroll)
+            children = app.RightPanel.Children;
+            for i = 1:length(children)
+                child = children(i);
+                if isprop(child, 'Position')
+                    pos = child.Position;
+                    % Scale X and Width
+                    pos(1) = round((pos(1) / app.BaseRightPanelWidth) * currentWidth);
+                    pos(3) = round((pos(3) / app.BaseRightPanelWidth) * currentWidth);
+                    child.Position = pos;
                 end
             end
-            delete(app.UIFigure);
+            
+            % Update base width to current to avoid cumulative errors
+            app.BaseRightPanelWidth = currentWidth;
         end
-
 
     end
 
@@ -782,198 +794,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
 
         % Create UIFigure and components
         function createComponents(app)
-
-            % Create UIFigure
-            app.UIFigure = uifigure('Name', 'Mini Photoshop', 'Position', [100 100 1200 700], 'Resize', 'off', 'Color', [0.95 0.95 0.95], 'CloseRequestFcn', @app.UIFigureCloseRequest);
-
-            % Create UIAxes
-            app.UIAxes = uiaxes(app.UIFigure);
-            app.UIAxes.Position = [50 10 700 480];
-            app.UIAxes.Visible = 'off';
-            app.UIAxes.XGrid = 'off';
-            app.UIAxes.YGrid = 'off';
-            app.UIAxes.Box = 'off';
-            app.UIAxes.XTick = [];
-            app.UIAxes.YTick = [];
-            axis(app.UIAxes, 'tight');
-            app.UIAxes.XColor = 'none';
-            app.UIAxes.YColor = 'none';
-
-            % Create HistogramAxes
-            app.HistogramAxes = uiaxes(app.UIFigure);
-            app.HistogramAxes.Position = [100 500 600 120];
-            app.HistogramAxes.Visible = 'off';
-
-            % Create PlaceholderLabel
-            app.PlaceholderLabel = uilabel(app.UIFigure, 'Text', 'Load an image to start', 'Position', [150 300 400 80], 'HorizontalAlignment', 'center', 'FontSize', 18, 'FontWeight', 'bold');
-
-
-
-            % Menu bar (enhanced)
-            % File Menu
-            fileMenu = uimenu(app.UIFigure, 'Text', 'File');
-            uimenu(fileMenu, 'Text', 'Open Image...', 'Accelerator', 'O', 'MenuSelectedFcn', @(src, event) app.OpenButtonPushed());
-            uimenu(fileMenu, 'Text', 'Save Image...', 'Accelerator', 'S', 'MenuSelectedFcn', @(src, event) app.SaveButtonPushed());
-            uimenu(fileMenu, 'Separator', 'on', 'Text', 'Exit', 'Accelerator', 'Q', 'MenuSelectedFcn', @(src, event) close(app.UIFigure));
-
-            % Edit Menu
-            editMenu = uimenu(app.UIFigure, 'Text', 'Edit');
-            uimenu(editMenu, 'Text', 'Reset', 'Accelerator', 'R', 'MenuSelectedFcn', @(src, event) app.ResetButtonPushed());
-            uimenu(editMenu, 'Text', 'Undo', 'Accelerator', 'Z', 'MenuSelectedFcn', @(src, event) app.UndoButtonPushed());
-            uimenu(editMenu, 'Text', 'Redo', 'Accelerator', 'Y', 'MenuSelectedFcn', @(src, event) app.RedoButtonPushed());
-
-            % Toolbar buttons 
-            app.ResetButton = uibutton(app.UIFigure, 'push', 'Text', 'Reset', 'Position', [10 650 100 30], 'BackgroundColor', [1 0.8 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.ResetButtonPushed);
-            app.UndoButton = uibutton(app.UIFigure, 'push', 'Text', 'Undo', 'Position', [120 650 100 30], 'BackgroundColor', [0.9 0.9 0.9], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.UndoButtonPushed);
-            app.RedoButton = uibutton(app.UIFigure, 'push', 'Text', 'Redo', 'Position', [230 650 100 30], 'BackgroundColor', [0.9 0.9 0.9], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.RedoButtonPushed);
-            app.ShowOriginalButton = uibutton(app.UIFigure, 'push', 'Text', 'Show Original', 'Position', [340 650 120 30], 'BackgroundColor', [1 1 0.8], 'FontWeight', 'bold', 'ButtonPushedFcn', @app.ShowOriginalButtonPushed);
-
-            % Create TabGroup
-            app.TabGroup = uitabgroup(app.UIFigure, 'Position', [750 60 350 580]);
-
-            % Adjustments Tab with scrollable panel
-            app.AdjustmentsTab = uitab(app.TabGroup, 'Title', 'Adjustments');
-            
-            % Create scrollable panel
-            scrollPanel = uipanel(app.AdjustmentsTab, 'Position', [0 0 350 580], 'Scrollable', 'on', 'AutoResizeChildren', 'off');
-            
-            % Start yPos higher than panel height to ensure scroll is enabled
-            marginTop = 100;
-            yPos = marginTop;
-            
-            % === SECTION 1: BASIC ADJUSTMENTS ===
-            yOffset = 1000;
-            topMargin = -60;
-            uilabel(scrollPanel, 'Text', 'BASIC ADJUSTMENTS', 'Position', [20 yOffset-yPos-50 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
-            uilabel(scrollPanel, 'Text', 'BASIC ADJUSTMENTS', 'Position', [20 yOffset-yPos 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
-            yPos = yPos + 50;
-            
-            % Brightness
-            app.BrightnessLabel = uilabel(scrollPanel, 'Text', 'Brightness', 'Position', [30 yOffset-yPos-30 80 20], 'FontWeight', 'bold');
-            app.BrightnessSlider = uislider(scrollPanel, 'Limits', [-100 100], 'Value', 0, 'Position', [120 yOffset-yPos-25 150 3], 'ValueChangedFcn', @app.BrightnessSliderValueChanged);
-            app.BrightnessField = uieditfield(scrollPanel, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 yOffset-yPos-30 50 20], 'ValueChangedFcn', @app.BrightnessFieldValueChanged);
-            yPos = yPos + 50;
-            
-            % Contrast
-            app.ContrastLabel = uilabel(scrollPanel, 'Text', 'Contrast', 'Position', [30 yOffset-yPos-30 80 20], 'FontWeight', 'bold');
-            app.ContrastSlider = uislider(scrollPanel, 'Limits', [-100 100], 'Value', 0, 'Position', [120 yOffset-yPos-25 150 3], 'ValueChangedFcn', @app.ContrastSliderValueChanged);
-            app.ContrastField = uieditfield(scrollPanel, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 yOffset-yPos-30 50 20], 'ValueChangedFcn', @app.ContrastFieldValueChanged);
-            yPos = yPos + 50;
-            
-            % Saturation
-            app.SaturationLabel = uilabel(scrollPanel, 'Text', 'Saturation', 'Position', [30 yOffset-yPos-30 80 20], 'FontWeight', 'bold');
-            app.SaturationSlider = uislider(scrollPanel, 'Limits', [-100 100], 'Value', 0, 'Position', [120 yOffset-yPos-25 150 3], 'ValueChangedFcn', @app.SaturationSliderValueChanged);
-            app.SaturationField = uieditfield(scrollPanel, 'numeric', 'Limits', [-100 100], 'Value', 0, 'Position', [280 yOffset-yPos-30 50 20], 'ValueChangedFcn', @app.SaturationFieldValueChanged);
-            yPos = yPos + 50;
-            
-            % Separator line
-            uilabel(scrollPanel, 'Text', '', 'Position', [20 yOffset-yPos-10 310 2], 'BackgroundColor', [0.7 0.7 0.7]);
-            yPos = yPos + 30;
-            
-            % === SECTION 2: RGB CURVES ===
-            uilabel(scrollPanel, 'Text', 'RGB CURVES', 'Position', [20 yOffset-yPos-30 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
-            yPos = yPos + 40;
-            
-            % Curve axes
-            app.CurveAxes = uiaxes(scrollPanel);
-            app.CurveAxes.Position = [40 yOffset-yPos-350 270 350];
-            app.CurveAxes.ButtonDownFcn = @app.CurveAxesButtonDown;
-            yPos = yPos + 360;
-            
-            % Curve controls
-            app.CurveChannelLabel = uilabel(scrollPanel, 'Text', 'Channel:', 'Position', [10 yOffset-yPos-25 60 20]);
-            app.CurveChannelDropDown = uidropdown(scrollPanel, 'Items', {'R', 'G', 'B', 'RGB'}, 'Value', 'RGB', 'Position', [70 yOffset-yPos-25 80 20], 'ValueChangedFcn', @app.CurveChannelDropDownValueChanged);
-            app.AddPointButton = uibutton(scrollPanel, 'push', 'Text', 'Add Point', 'Position', [160 yOffset-yPos-25 80 25], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.AddPointButtonPushed);
-            app.RemovePointButton = uibutton(scrollPanel, 'push', 'Text', 'Remove Point', 'Position', [250 yOffset-yPos-25 90 25], 'BackgroundColor', [1 0.8 0.8], 'ButtonPushedFcn', @app.RemovePointButtonPushed);
-            yPos = yPos + 35;
-            
-            app.ResetCurveButton = uibutton(scrollPanel, 'push', 'Text', 'Reset Curves', 'Position', [10 yOffset-yPos-25 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ResetCurveButtonPushed);
-            yPos = yPos + 40;
-            
-            % Separator line
-            uilabel(scrollPanel, 'Text', '', 'Position', [20 yOffset-yPos-10 310 2], 'BackgroundColor', [0.7 0.7 0.7]);
-            yPos = yPos + 30;
-            
-            % === SECTION 3: TRANSFORMATIONS ===
-            uilabel(scrollPanel, 'Text', 'TRANSFORMATIONS', 'Position', [20 yOffset-yPos-30 310 25], 'FontWeight', 'bold', 'FontSize', 12, 'HorizontalAlignment', 'center', 'BackgroundColor', [0.95 0.95 0.95]);
-            yPos = yPos + 40;
-            
-            % Rotation buttons
-            app.Rotate90Button = uibutton(scrollPanel, 'push', 'Text', 'Rotate 90°', 'Position', [40 yOffset-yPos-35 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate90ButtonPushed);
-            app.Rotate180Button = uibutton(scrollPanel, 'push', 'Text', 'Rotate 180°', 'Position', [140 yOffset-yPos-35 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate180ButtonPushed);
-            app.Rotate270Button = uibutton(scrollPanel, 'push', 'Text', 'Rotate 270°', 'Position', [240 yOffset-yPos-35 90 30], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.Rotate270ButtonPushed);
-            yPos = yPos + 45;
-            
-            % Flip buttons
-            app.FlipHorizontalButton = uibutton(scrollPanel, 'push', 'Text', 'Flip H.', 'Position', [40 yOffset-yPos-35 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipHorizontalButtonPushed);
-            app.FlipVerticalButton = uibutton(scrollPanel, 'push', 'Text', 'Flip V.', 'Position', [140 yOffset-yPos-35 90 30], 'BackgroundColor', [1 0.95 0.9], 'ButtonPushedFcn', @app.FlipVerticalButtonPushed);
-            yPos = yPos + 60;
-
-            % Add invisible spacer to control scroll height
-            uilabel(scrollPanel, 'Text', '', 'Position', [0 yOffset-yPos-40 1 1], 'Visible', 'off');
-
-            % Filters Tab
-            app.FiltersTab = uitab(app.TabGroup, 'Title', 'Filters');
-            
-            % 4x2 
-            tabW = 350; tabH = 580;
-            nRows = 4; nCols = 2;
-            imgW = 80; imgH = 60; labelH = 16; btnH = 18;
-            gridW = nCols*imgW;
-            gridH = nRows*(imgH+btnH+labelH);
-            padX = (tabW-gridW)/(nCols+1);
-            padY = ((tabH-60)-gridH)/(nRows+1);
-            padY = padY + 4; 
-            startX = padX;
-            startY = tabH - padY - imgH;
-            yStep = imgH + btnH + labelH + padY;
-            xStep = imgW + padX;
-
-            % Row 1
-            app.FilterGaussianBlurImg = uiimage(app.FiltersTab, 'Position', [startX startY imgW imgH]);
-            app.FilterSharpenImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY imgW imgH]);
-            app.FilterGaussianBlurBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            app.FilterSharpenBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Blur', 'Position', [startX startY-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-            uilabel(app.FiltersTab, 'Text', 'Sharpen', 'Position', [startX+xStep startY-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-
-            % Row 2
-            app.FilterSobelImg = uiimage(app.FiltersTab, 'Position', [startX startY-yStep imgW imgH]);
-            app.FilterCannyImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY-yStep imgW imgH]);
-            app.FilterSobelBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            app.FilterCannyBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Edges', 'Position', [startX startY-yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-            uilabel(app.FiltersTab, 'Text', 'Canny', 'Position', [startX+xStep startY-yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-
-            % Row 3
-            app.FilterEmbossImg = uiimage(app.FiltersTab, 'Position', [startX startY-2*yStep imgW imgH]);
-            app.FilterHistEqImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY-2*yStep imgW imgH]);
-            app.FilterEmbossBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-2*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            app.FilterHistEqBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-2*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Emboss', 'Position', [startX startY-2*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-            uilabel(app.FiltersTab, 'Text', 'Hist Eq', 'Position', [startX+xStep startY-2*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-
-            % Row 4
-            app.FilterAdaptHistImg = uiimage(app.FiltersTab, 'Position', [startX startY-3*yStep imgW imgH]);
-            app.FilterNoiseReductionImg = uiimage(app.FiltersTab, 'Position', [startX+xStep startY-3*yStep imgW imgH]);
-            app.FilterAdaptHistBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX startY-3*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            app.FilterNoiseReductionBtn = uibutton(app.FiltersTab, 'state', 'Text', '', 'Position', [startX+xStep startY-3*yStep-btnH-5 imgW btnH], 'BackgroundColor', [0.8 0.8 0.8], 'ValueChangedFcn', @(btn, event) app.updateButtonColor(btn));
-            uilabel(app.FiltersTab, 'Text', 'Adapt Hist', 'Position', [startX startY-3*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-            uilabel(app.FiltersTab, 'Text', 'Noise Red', 'Position', [startX+xStep startY-3*yStep-btnH-labelH-10 imgW labelH], 'HorizontalAlignment', 'center', 'FontSize', 11);
-
-            lastRowY = startY-3*yStep;
-            applyBtnY = lastRowY-btnH-labelH-padY-18;
-            app.ApplyFiltersButton = uibutton(app.FiltersTab, 'push', 'Text', 'Apply Selected Filters', 'Position', [round((tabW-170)/2) applyBtnY 170 24], 'BackgroundColor', [0.8 0.9 1], 'ButtonPushedFcn', @app.ApplyFiltersButtonPushed);
-
-            % Info Tab
-            app.InfoTab = uitab(app.TabGroup, 'Title', 'Info');
-            app.ImageInfoText = uitextarea(app.InfoTab, 'Value', "", 'Position', [10 10 330 520], 'Editable', 'off');
-
-            % History Tab
-            app.HistoryTab = uitab(app.TabGroup, 'Title', 'History');
-            app.HistoryText = uitextarea(app.HistoryTab, 'Value', "", 'Position', [10 40 330 500], 'Editable', 'off');
-            app.ExportLogButton = uibutton(app.HistoryTab, 'push', 'Text', 'Export Log', 'Position', [10 10 100 25], 'BackgroundColor', [0.9 0.95 1], 'ButtonPushedFcn', @app.ExportLogButtonPushed);
-
+            UIManager.createMainUI(app);
         end
 
     end
@@ -1020,18 +841,18 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         % Button pushed function: AddPointButton
         function AddPointButtonPushed(app, ~, ~)
             app.CurveManager.enableAddMode();
-            app.AddPointButton.BackgroundColor = [0.2 0.8 0.2];  % Verde brillante
+            app.AddPointButton.BackgroundColor = [0.2 0.8 0.2]; 
             app.AddPointButton.FontWeight = 'bold';
-            app.RemovePointButton.BackgroundColor = [0.96 0.96 0.96];  % Grigio chiaro
+            app.RemovePointButton.BackgroundColor = [0.96 0.96 0.96]; 
             app.RemovePointButton.FontWeight = 'normal';
         end
 
         % Button pushed function: RemovePointButton
         function RemovePointButtonPushed(app, ~, ~)
             app.CurveManager.enableRemoveMode();
-            app.RemovePointButton.BackgroundColor = [0.9 0.2 0.2];  % Rosso brillante
+            app.RemovePointButton.BackgroundColor = [0.9 0.2 0.2];
             app.RemovePointButton.FontWeight = 'bold';
-            app.AddPointButton.BackgroundColor = [0.96 0.96 0.96];  % Grigio chiaro
+            app.AddPointButton.BackgroundColor = [0.96 0.96 0.96]; 
             app.AddPointButton.FontWeight = 'normal';
         end
 
