@@ -62,6 +62,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         FilterNoiseReductionImg matlab.ui.control.Image
         FilterNoiseReductionBtn matlab.ui.control.StateButton
         ApplyFiltersButton matlab.ui.control.Button
+        LoadingLabel matlab.ui.control.Label
     end
 
     properties (Access = private)
@@ -76,6 +77,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         HasUnsavedChanges
         ShowingOriginal
         AdjustmentTimer  % timer for debouncing adjustments
+        HistoryFigure  % handle to the history window figure
+        HistoryTextArea  % handle to the text area in history window
     end
 
     % Callbacks that handle component events
@@ -93,6 +96,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentSaturation = 0;
             app.HasUnsavedChanges = false;
             app.ShowingOriginal = false;
+            app.HistoryFigure = [];
+            app.HistoryTextArea = [];
             app.AdjustmentTimer = timer('ExecutionMode', 'singleShot', 'StartDelay', 0.2, 'TimerFcn', @app.applyAdjustmentsWithLog);
             app.UIAxes.Visible = 'off';
             app.HistogramAxes.Visible = 'off';
@@ -103,6 +108,9 @@ classdef Mini_Photoshop < matlab.apps.AppBase
 
         function updateHistoryText(app)
             app.HistoryText.Value = strjoin(app.HistoryManager.HistoryLog, newline);
+            if ~isempty(app.HistoryFigure) && isvalid(app.HistoryFigure) && ~isempty(app.HistoryTextArea) && isvalid(app.HistoryTextArea)
+                app.HistoryTextArea.Value = app.HistoryManager.HistoryLog;
+            end
         end
 
         function applyAdjustments(app, ~, ~)
@@ -134,9 +142,12 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         end
 
         function applyAdjustmentsWithLog(app, ~, ~)
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             app.applyAdjustments();
             app.HistoryManager.addToHistoryLog(sprintf('Adjustments: B=%.1f, C=%.1f, S=%.1f', app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation));
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Button pushed function: OpenButton
@@ -465,6 +476,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             filtered = ImageAdjuster.applyAllAdjustments(app.OriginalImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
             filtersApplied = {};
             if app.FilterGaussianBlurBtn.Value
@@ -509,6 +522,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.HasUnsavedChanges = true;
                 app.HistoryManager.addToHistoryLog('Filters reset');
                 app.updateHistoryText();
+                app.LoadingLabel.Visible = 'off';
                 return;
             end
             app.CurrentImage = filtered;
@@ -521,6 +535,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             logMsg = ['Filters applied: ' strjoin(filtersApplied, ', ')];
             app.HistoryManager.addToHistoryLog(logMsg);
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Button pushed function: Rotate90Button
@@ -533,6 +548,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             rotated = imrotate(app.CurrentImage, -90);
             app.CurrentImage = rotated;
             app.OriginalImage = rotated;  % Update the original for persistence
@@ -544,6 +561,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Rotation 90°');
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Button pushed function: Rotate180Button
@@ -556,6 +574,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             rotated = imrotate(app.CurrentImage, 180);
             app.CurrentImage = rotated;
             app.OriginalImage = rotated;  % Update the original for persistence
@@ -567,6 +587,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Rotation 180°');
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Button pushed function: Rotate270Button
@@ -579,6 +600,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             rotated = imrotate(app.CurrentImage, 90);
             app.CurrentImage = rotated;
             app.OriginalImage = rotated;  % Update the original for persistence
@@ -590,6 +613,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Rotation 270°');
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Button pushed function: FlipHorizontalButton
@@ -602,6 +626,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             flipped = flip(app.CurrentImage, 2);
             app.CurrentImage = flipped;
             app.OriginalImage = flipped;  % Update the original for persistence
@@ -613,6 +639,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Horizontal flip');
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Button pushed function: FlipVerticalButton
@@ -625,6 +652,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 app.ShowingOriginal = false;
                 app.ShowOriginalButton.Text = 'Show Original';
             end
+            app.LoadingLabel.Visible = 'on';
+            drawnow;
             flipped = flip(app.CurrentImage, 1);
             app.CurrentImage = flipped;
             app.OriginalImage = flipped;  % Update the original for persistence
@@ -636,6 +665,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HasUnsavedChanges = true;
             app.HistoryManager.addToHistoryLog('Vertical flip');
             app.updateHistoryText();
+            app.LoadingLabel.Visible = 'off';
         end
 
         % Show Photo Info Window
@@ -645,7 +675,47 @@ classdef Mini_Photoshop < matlab.apps.AppBase
 
         % Show Modification History Window
         function ShowModificationHistoryWindow(app)
-            WindowManager.ShowModificationHistory(app.UIFigure, app.HistoryManager.HistoryLog);
+            if isempty(app.HistoryManager.HistoryLog)
+                uialert(app.UIFigure, 'No modifications yet', 'Info', 'Icon', 'info');
+                return;
+            end
+            
+            if ~isempty(app.HistoryFigure) && isvalid(app.HistoryFigure)
+                % Bring to front and update
+                figure(app.HistoryFigure);
+                app.HistoryTextArea.Value = app.HistoryManager.HistoryLog;
+                return;
+            end
+            
+            % Create new history window
+            app.HistoryFigure = uifigure('Name', 'Modification History', 'Position', [200 200 500 400], 'Resize', 'off', 'DeleteFcn', @app.onHistoryFigureDelete);
+            
+            % Text area with history
+            app.HistoryTextArea = uitextarea(app.HistoryFigure, 'Position', [10 50 480 340], 'Editable', 'off', 'FontSize', 10);
+            app.HistoryTextArea.Value = app.HistoryManager.HistoryLog;
+            
+            % Export button
+            exportBtn = uibutton(app.HistoryFigure, 'push', 'Text', '📄 Export Log', ...
+                'Position', [10 10 120 30], 'ButtonPushedFcn', @app.exportHistory);
+        end
+        
+        function onHistoryFigureDelete(app, ~, ~)
+            app.HistoryFigure = [];
+            app.HistoryTextArea = [];
+        end
+        
+        function exportHistory(app, ~, ~)
+            [file, path] = uiputfile('*.txt', 'Export modifications log');
+            if isequal(file, 0)
+                return;
+            end
+            fullpath = fullfile(path, file);
+            fid = fopen(fullpath, 'w');
+            for i = 1:length(app.HistoryManager.HistoryLog)
+                fprintf(fid, '%s\n', app.HistoryManager.HistoryLog{i});
+            end
+            fclose(fid);
+            uialert(app.HistoryFigure, 'Log exported successfully', 'Success', 'Icon', 'success');
         end
 
         % Close request function: UIFigure
@@ -670,6 +740,9 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 elseif strcmp(selection, 'Cancel')
                     return;
                 end
+            end
+            if ~isempty(app.HistoryFigure) && isvalid(app.HistoryFigure)
+                delete(app.HistoryFigure);
             end
             delete(app.UIFigure);
         end
@@ -727,14 +800,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             % Noise Reduction
             filtered = ImageFilter.applyFilter(img, 'Noise reduction');
             app.FilterNoiseReductionImg.ImageSource = filtered;
-        end
-
-        function updateButtonColor(~, btn)
-            if btn.Value
-                btn.BackgroundColor = [0.5 0.9 0.5]; % Green when selected
-            else
-                btn.BackgroundColor = [0.8 0.8 0.8]; % Gray when not
-            end
         end
 
         function ExportLogButtonPushed(app, ~, ~)
@@ -880,6 +945,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             y = round(coords(2));
             
             if app.CurveManager.AddMode
+                app.LoadingLabel.Visible = 'on';
+                drawnow;
                 app.CurveManager.addPoint(x, y);
                 PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
                 drawnow;
@@ -902,7 +969,10 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 end
                 app.HistoryManager.addToHistoryLog(sprintf('%s curve point added at (%d, %d)', channelStr, x, y));
                 app.updateHistoryText();
+                app.LoadingLabel.Visible = 'off';
             elseif app.CurveManager.RemoveMode
+                app.LoadingLabel.Visible = 'on';
+                drawnow;
                 app.CurveManager.removePoint(x, y);
                 PlotManager.updateCurvePlots(app.CurveAxes, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB, app.CurveManager.CurrentChannel);
                 drawnow;
@@ -925,6 +995,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 end
                 app.HistoryManager.addToHistoryLog(sprintf('%s curve point removed', channelStr));
                 app.updateHistoryText();
+                app.LoadingLabel.Visible = 'off';
             end
         end
 

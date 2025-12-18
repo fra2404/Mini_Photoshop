@@ -20,10 +20,15 @@ classdef WindowManager
             
             % Create small info window
             infoFig = uifigure('Name', 'Photo Info', 'Position', [200 200 450 350], 'Resize', 'off');
+            infoFig.CloseRequestFcn = @closeFig;
             
             % Text area with info
             infoText = uitextarea(infoFig, 'Position', [10 10 430 330], 'Editable', 'off', 'FontSize', 11);
             infoText.Value = imageInfoText;
+            
+            function closeFig(~,~)
+                delete(infoFig);
+            end
         end
         
         % Show Modification History Window
