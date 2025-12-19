@@ -76,7 +76,7 @@ classdef ImageAdjuster < handle
         
         function adjusted = applyAllAdjustments(img, brightness, contrast, saturation, pointsR, pointsG, pointsB)
             % Always start from original image
-            % Apply in correct order: Brightness -> Contrast -> Curves -> Saturation
+            % Apply in order: Brightness -> Contrast -> Curves -> Saturation
             adjusted = ImageAdjuster.adjustBrightness(img, brightness);
             adjusted = ImageAdjuster.adjustContrast(adjusted, contrast);
             adjusted = ImageAdjuster.applyCurves(adjusted, pointsR, pointsG, pointsB);

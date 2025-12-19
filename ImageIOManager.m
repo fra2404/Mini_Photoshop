@@ -1,5 +1,14 @@
+% Project: Mini Photoshop
+% Author: Francesco Albano - LJ2506219
+% University: BUAA
+% Course: Technical Computing & Programming for Engineers
+% Date: 16/12/2025
+% Version: v1.0 (final delivery)
+% GitHub: https://github.com/fra2404/Mini_Photoshop
+% Description: Provides static methods for image input/output operations (loading, saving, retrieving info) using MATLAB’s image processing functions.
+
 classdef ImageIOManager
-    %IMAGEIOMANAGER Gestisce il caricamento e il salvataggio di immagini in vari formati
+
     methods(Static)
         function [img, fullpath] = loadImageDialog(~)
             [file, path] = uigetfile({'*.jpg;*.jpeg;*.png;*.tif;*.tiff;*.bmp;*.gif', ...

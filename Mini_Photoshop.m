@@ -63,6 +63,8 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         FilterNoiseReductionBtn matlab.ui.control.StateButton
         ApplyFiltersButton matlab.ui.control.Button
         LoadingLabel matlab.ui.control.Label
+        RightPanel matlab.ui.container.Panel
+        BaseRightPanelWidth double
     end
 
     properties (Access = private)
@@ -695,7 +697,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.HistoryTextArea.Value = app.HistoryManager.HistoryLog;
             
             % Export button
-            exportBtn = uibutton(app.HistoryFigure, 'push', 'Text', '📄 Export Log', ...
+            uibutton(app.HistoryFigure, 'push', 'Text', '📄 Export Log', ...
                 'Position', [10 10 120 30], 'ButtonPushedFcn', @app.exportHistory);
         end
         
@@ -716,6 +718,24 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             end
             fclose(fid);
             uialert(app.HistoryFigure, 'Log exported successfully', 'Success', 'Icon', 'success');
+        end
+
+        function ExportLogButtonPushed(app, ~, ~)
+            if isempty(app.HistoryManager.HistoryLog)
+                uialert(app.UIFigure, 'No log available', 'Error');
+                return;
+            end
+            [file, path] = uiputfile('*.txt', 'Export operations log');
+            if isequal(file, 0)
+                return;
+            end
+            fullpath = fullfile(path, file);
+            fid = fopen(fullpath, 'w');
+            for i = 1:length(app.HistoryManager.HistoryLog)
+                fprintf(fid, '%s\n', app.HistoryManager.HistoryLog{i});
+            end
+            fclose(fid);
+            uialert(app.UIFigure, 'Log exported successfully', 'Confirm', 'Icon', 'success');
         end
 
         % Close request function: UIFigure
@@ -802,24 +822,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.FilterNoiseReductionImg.ImageSource = filtered;
         end
 
-        function ExportLogButtonPushed(app, ~, ~)
-            if isempty(app.HistoryManager.HistoryLog)
-                uialert(app.UIFigure, 'No log available', 'Error');
-                return;
-            end
-            [file, path] = uiputfile('*.txt', 'Export operations log');
-            if isequal(file, 0)
-                return;
-            end
-            fullpath = fullfile(path, file);
-            fid = fopen(fullpath, 'w');
-            for i = 1:length(app.HistoryManager.HistoryLog)
-                fprintf(fid, '%s\n', app.HistoryManager.HistoryLog{i});
-            end
-            fclose(fid);
-            uialert(app.UIFigure, 'Log exported successfully', 'Confirm', 'Icon', 'success');
-        end
-
         % SizeChanged callback: RightPanel - scales content width dynamically
         function RightPanelSizeChanged(app, ~, ~)
             if isempty(app.RightPanel) || ~isvalid(app.RightPanel)
@@ -888,7 +890,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
         function delete(app)
 
             % Stop the timer
-            if isvalid(app.AdjustmentTimer)
+            if ~isempty(app.AdjustmentTimer) && isa(app.AdjustmentTimer, 'timer') && isvalid(app.AdjustmentTimer)
                 stop(app.AdjustmentTimer);
                 delete(app.AdjustmentTimer);
             end

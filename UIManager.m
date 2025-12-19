@@ -22,19 +22,12 @@ classdef UIManager < handle
 
         function createUIFigureAndComponents(app)
 
-            % Helper function to enforce minimum window size
-            function enforceMinSize(fig)
-                minWidth = 1200;
-                minHeight = 600;
-                pos = fig.Position;
-                if pos(3) < minWidth
-                    pos(3) = minWidth;
-                end
-                if pos(4) < minHeight
-                    pos(4) = minHeight;
-                end
-                fig.Position = pos;
-            end
+            % Layout constants
+            minWidth = 1200;
+            minHeight = 600;
+            rightPanelWidth = 560; % keep controls at a fixed width
+            margin = 10;
+            app.BaseRightPanelWidth = rightPanelWidth;
 
             % Create UIFigure - NOW RESIZABLE with minimum size
             app.UIFigure = uifigure('Name', 'Mini Photoshop', ...
@@ -43,7 +36,7 @@ classdef UIManager < handle
                 'AutoResizeChildren', 'off', ...
                 'Color', [0.95 0.95 0.95], ...
                 'CloseRequestFcn', @app.UIFigureCloseRequest, ...
-                'SizeChangedFcn', @(src,~) enforceMinSize(src));
+                'SizeChangedFcn', []); % set after panels are created
 
             % Menu bar
             fileMenu = uimenu(app.UIFigure, 'Text', '📂 FILE');
@@ -62,8 +55,8 @@ classdef UIManager < handle
 
             % ==================== LEFT PANEL: IMAGE + HISTOGRAM ====================
             leftPanel = uipanel(app.UIFigure, ...
-                'Units', 'normalized', ...
-                'Position', [0.01 0.01 0.57 0.98], ...
+                'Units', 'pixels', ...
+                'Position', [margin margin 800 780], ...
                 'BackgroundColor', [0.95 0.95 0.95], ...
                 'BorderType', 'line', ...
                 'HighlightColor', [0.7 0.7 0.7]);
@@ -94,7 +87,7 @@ classdef UIManager < handle
             % PlaceholderImage 
             app.PlaceholderLabel = uiimage(leftPanel, ...
                 'Position', [199 292 400 300], ...
-                'ImageSource', 'placeholder.svg', ...
+                'ImageSource', 'assets/placeholder.svg', ...
                 'ScaleMethod', 'fit');
 
             % Upload Photo button 
@@ -116,11 +109,12 @@ classdef UIManager < handle
 
             % ==================== RIGHT PANEL: CONTROLS (SCROLLABLE) ====================
             rightPanel = uipanel(app.UIFigure, ...
-                'Units', 'normalized', ...
-                'Position', [0.59 0.01 0.40 0.98], ...
+                'Units', 'pixels', ...
+                'Position', [830 margin rightPanelWidth 780], ...
                 'BackgroundColor', [0.95 0.95 0.95], ...
                 'Scrollable', 'on', ...
                 'AutoResizeChildren', 'off');
+            app.RightPanel = rightPanel;
 
             % Y position tracking (from top, higher than panel to enable scroll)
             yBase = 2300; % Virtual canvas height
@@ -152,15 +146,13 @@ classdef UIManager < handle
                 'FontWeight', 'bold', 'ButtonPushedFcn', @app.RedoButtonPushed);
             yPos = yPos + 20;
 
-            % Separator
-            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
-            yPos = yPos + 20;
-            
-            % Separator
+            % Separator 
             uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
             yPos = yPos + 20;
 
             % === SECTION 2: BASIC ADJUSTMENTS ===
+            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
+            yPos = yPos + 20;
             uilabel(rightPanel, 'Text', '═══ BASIC ADJUSTMENTS ═══', ...
                 'Position', [20 yBase-yPos 520 25], 'FontWeight', 'bold', ...
                 'FontSize', 13, 'HorizontalAlignment', 'center', ...
@@ -203,12 +195,10 @@ classdef UIManager < handle
             % Separator
             uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
             yPos = yPos + 20;
-            
-            % Separator
-            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
-            yPos = yPos + 20;
 
             % === SECTION 3: RGB CURVES ===
+            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
+            yPos = yPos + 20;
             uilabel(rightPanel, 'Text', '═══ RGB CURVES ═══', ...
                 'Position', [20 yBase-yPos 520 25], 'FontWeight', 'bold', ...
                 'FontSize', 13, 'HorizontalAlignment', 'center', ...
@@ -242,15 +232,13 @@ classdef UIManager < handle
                 'ButtonPushedFcn', @app.ResetCurveButtonPushed);
             yPos = yPos + 45;
 
-            % Separator
-            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
-            yPos = yPos + 20;
-            
-            % Separator
+            % Separator 
             uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
             yPos = yPos + 20;
 
             % === SECTION 4: TRANSFORMATIONS ===
+            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
+            yPos = yPos + 20;
             uilabel(rightPanel, 'Text', '═══ TRANSFORMATIONS ═══', ...
                 'Position', [20 yBase-yPos 520 25], 'FontWeight', 'bold', ...
                 'FontSize', 13, 'HorizontalAlignment', 'center', ...
@@ -289,6 +277,8 @@ classdef UIManager < handle
             yPos = yPos + 20;
 
             % === SECTION 5: FILTERS ===
+            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
+            yPos = yPos + 20;
             uilabel(rightPanel, 'Text', '═══ FILTERS ═══', ...
                 'Position', [20 yBase-yPos 520 25], 'FontWeight', 'bold', ...
                 'FontSize', 13, 'HorizontalAlignment', 'center', ...
@@ -404,6 +394,8 @@ classdef UIManager < handle
             yPos = yPos + 20;
 
             % === SECTION 6: IMAGE INFO ===
+            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
+            yPos = yPos + 20;
             uilabel(rightPanel, 'Text', '═══ IMAGE INFO ═══', ...
                 'Position', [20 yBase-yPos 520 25], 'FontWeight', 'bold', ...
                 'FontSize', 13, 'HorizontalAlignment', 'center', ...
@@ -420,6 +412,8 @@ classdef UIManager < handle
             yPos = yPos + 20;
 
             % === SECTION 7: HISTORY ===
+            uilabel(rightPanel, 'Text', '', 'Position', [20 yBase-yPos 520 2], 'BackgroundColor', [0.6 0.6 0.6]);
+            yPos = yPos + 20;
             uilabel(rightPanel, 'Text', '═══ HISTORY LOG ═══', ...
                 'Position', [20 yBase-yPos 520 25], 'FontWeight', 'bold', ...
                 'FontSize', 13, 'HorizontalAlignment', 'center', ...
@@ -439,6 +433,25 @@ classdef UIManager < handle
 
             % Final spacer to ensure scroll works
             uilabel(rightPanel, 'Text', '', 'Position', [0 yBase-yPos 1 1], 'Visible', 'off');
+
+            % Apply layout once and bind resize handler so only the left panel grows
+            resizeLayout(app.UIFigure);
+            app.UIFigure.SizeChangedFcn = @(src,~) resizeLayout(src);
+
+            % Nested layout helper keeps minimum size and anchors right panel
+            function resizeLayout(fig)
+                pos = fig.Position;
+                pos(3) = max(pos(3), minWidth);
+                pos(4) = max(pos(4), minHeight);
+                fig.Position = pos;
+
+                figW = pos(3);
+                figH = pos(4);
+
+                leftW = max(figW - rightPanelWidth - 2*margin, 300);
+                set(leftPanel, 'Position', [margin margin leftW figH - 2*margin]);
+                set(rightPanel, 'Position', [figW - rightPanelWidth - margin, margin, rightPanelWidth, figH - 2*margin]);
+            end
 
         end
 

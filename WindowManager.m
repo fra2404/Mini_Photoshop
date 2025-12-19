@@ -46,7 +46,7 @@ classdef WindowManager
             histText.Value = historyLog;
             
             % Export button
-            exportBtn = uibutton(histFig, 'push', 'Text', '📄 Export Log', ...
+            uibutton(histFig, 'push', 'Text', '📄 Export Log', ...
                 'Position', [10 10 120 30], 'ButtonPushedFcn', @(~,~) exportHistory());
             
             function exportHistory()
