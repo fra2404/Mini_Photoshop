@@ -140,7 +140,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.CurrentImage = adjusted;
             app.HistoryManager.pushToHistory(app.CurrentImage, app.CurrentBrightness, app.CurrentContrast, app.CurrentSaturation, app.CurveManager.CurvePointsR, app.CurveManager.CurvePointsG, app.CurveManager.CurvePointsB);
             app.HasUnsavedChanges = true;
-            % Don't add to log here - will be added by specific action functions
         end
 
         function applyAdjustmentsWithLog(app, ~, ~)
@@ -205,7 +204,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             app.UIAxes.Visible = 'on';
             app.HistogramAxes.Visible = 'on';
             app.PlaceholderLabel.Visible = 'off';
-            app.OpenButton.Visible = 'off';  % Nascondi anche il bottone Upload
+            app.OpenButton.Visible = 'off';
             app.HasUnsavedChanges = false;
             app.ShowingOriginal = false;
             app.ShowOriginalButton.Text = 'Show Original';
@@ -744,7 +743,6 @@ classdef Mini_Photoshop < matlab.apps.AppBase
                 selection = uiconfirm(app.UIFigure, 'You have unsaved changes. Do you want to save before closing?', 'Confirm close', ...
                     'Options', {'Save', 'Do not save', 'Cancel'}, 'DefaultOption', 3, 'CancelOption', 3);
                 if strcmp(selection, 'Save')
-                    % Simula salvataggio
                     if isempty(app.CurrentImage)
                         uialert(app.UIFigure, 'No image loaded', 'Error');
                         return;
@@ -829,7 +827,7 @@ classdef Mini_Photoshop < matlab.apps.AppBase
             end
             
             % Calculate scaling factor based on panel width
-            currentWidth = app.RightPanel.InnerPosition(3);  % Use InnerPosition for scrollable panels
+            currentWidth = app.RightPanel.InnerPosition(3);
             scale = currentWidth / app.BaseRightPanelWidth;
             
             % Only scale if change is significant (avoid micro-adjustments)
