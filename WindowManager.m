@@ -2,7 +2,7 @@
 % Author: Francesco Albano - LJ2506219
 % University: BUAA
 % Course: Technical Computing & Programming for Engineers
-% Date: 17/12/2025
+% Date: 20/12/2025
 % Version: v1.0 (final delivery)
 % GitHub: https://github.com/fra2404/Mini_Photoshop
 % Description: Manages additional windows (Photo Info, Modification History) for the Mini Photoshop application.
