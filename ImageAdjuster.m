@@ -2,7 +2,7 @@
 % Author: Francesco Albano - LJ2506219
 % University: BUAA
 % Course: Technical Computing & Programming for Engineers
-% Date: 16/12/2025
+% Date: 20/12/2025
 % Version: v1.0 (final delivery)
 % GitHub: https://github.com/fra2404/Mini_Photoshop
 % Description: Provides static methods for adjusting image brightness, contrast, saturation, and applying custom tone curves.
@@ -76,7 +76,7 @@ classdef ImageAdjuster < handle
         
         function adjusted = applyAllAdjustments(img, brightness, contrast, saturation, pointsR, pointsG, pointsB)
             % Always start from original image
-            % Apply in correct order: Brightness -> Contrast -> Curves -> Saturation
+            % Apply in order: Brightness -> Contrast -> Curves -> Saturation
             adjusted = ImageAdjuster.adjustBrightness(img, brightness);
             adjusted = ImageAdjuster.adjustContrast(adjusted, contrast);
             adjusted = ImageAdjuster.applyCurves(adjusted, pointsR, pointsG, pointsB);

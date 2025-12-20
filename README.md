@@ -11,13 +11,17 @@ Mini Photoshop is a graphical image editor built using MATLAB's GUI capabilities
 ### Image Adjustments
 
 - **Brightness, Contrast, Saturation**: Real-time adjustments using HSV color space
-- **Gamma Correction**: Precise color control on individual RGB channels
 
 ### RGB Curve Editor
 
 - Multi-channel curve editing (Red, Green, Blue, or RGB simultaneously)
 - Interactive point manipulation with visual feedback
 - Smooth spline interpolation for natural tonal transitions
+
+### Geometric Transformations
+
+- Rotation (90°, 180°, 270°)
+- Horizontal and vertical flipping
 
 ### Filters
 
@@ -28,10 +32,14 @@ Mini Photoshop is a graphical image editor built using MATLAB's GUI capabilities
 - Noise reduction with median filtering
 - Automatic filter persistence through adjustments
 
-### Geometric Transformations
+### Filters
 
-- Rotation (90°, 180°, 270°)
-- Horizontal and vertical flipping
+- Gaussian Blur and Sharpening
+- Edge Detection (Sobel and Canny algorithms)
+- Emboss effect
+- Histogram Equalization
+- Noise reduction with median filtering
+- Automatic filter state persists across adjustments in-session
 
 ### Additional Features
 
@@ -69,13 +77,13 @@ See the appendix of the [technical report](paper/report.pdf) for screenshots of 
 
 ## Usage
 
-1. **Loading Images**: Use File → Load Image to open supported image formats
-2. **Adjustments**: Use sliders in the Adjustments tab for real-time modifications
-3. **Curves**: Edit RGB curves in the Curves tab with point manipulation
-4. **Filters**: Apply filters in the Filters tab
-5. **History**: View operation history and use undo/redo in the History tab
-6. **Metadata**: Check EXIF information in the Info tab
-7. **Saving**: Export in various formats using File → Save As
+1. **Open Image**: Use FILE → 🖼️ Open Image...
+2. **Adjustments**: Use the sliders in the right panel (BASIC ADJUSTMENTS section)
+3. **Curves**: Edit RGB curves in the RGB CURVES section (add/remove points, channel selector)
+4. **Filters**: Toggle filters in the FILTERS section, then click “✓ Apply Selected Filters”
+5. **History**: See the HISTORY LOG section and export via “📄 Export Log”; open a dedicated window via INFO → 📝 Modification History
+6. **Metadata**: Open INFO → 🖼️ Photo Info to view EXIF details
+7. **Save Image**: Use FILE → 💾 Save Image...
 
 For detailed usage instructions, see the User Guide section in the [technical report](paper/report.pdf).
 
@@ -84,6 +92,7 @@ For detailed usage instructions, see the User Guide section in the [technical re
 The application follows a modular design with separate manager classes:
 
 - **Mini_Photoshop.m**: Main application controller with GUI components
+- **UIManager.m**: Builds and manages the main UI layout and controls
 - **ImageAdjuster.m**: Core image processing algorithms
 - **ImageFilter.m**: Filter implementations
 - **HistoryManager.m**: Undo/redo functionality
@@ -91,6 +100,8 @@ The application follows a modular design with separate manager classes:
 - **FilterManager.m**: Filter state management
 - **PlotManager.m**: Histogram and curve plotting
 - **MetadataExtractor.m**: EXIF data extraction
+- **ImageIOManager.m**: File dialogs for loading/saving and retrieving image info
+- **WindowManager.m**: Secondary windows (Photo Info, Modification History)
 
 ### UML Class Diagram
 
